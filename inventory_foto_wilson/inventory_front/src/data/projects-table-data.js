@@ -1,7 +1,7 @@
 export const projectsTableData = [
   {
     img: "/img/logo-xd.svg",
-    name: "Material XD Version",
+    name: "Foto Wilson",
     members: [
       { img: "/img/team-1.jpeg", name: "Romina Hadid" },
       { img: "/img/team-2.jpeg", name: "Ryan Tompson" },

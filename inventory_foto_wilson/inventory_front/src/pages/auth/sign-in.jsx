@@ -6,34 +6,59 @@ import {
   Typography,
 } from "@material-tailwind/react";
 import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
-import axios from "axios";
+import { useState, useContext } from "react";
+import { AuthContext } from "@/context/AuthContext";
+import { login as loginService } from "@/services/authService";
 
 export function SignIn() {
   const [userName, setUserName] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { login } = useContext(AuthContext);
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
+  e.preventDefault();
+  setError("");
+  setLoading(true);
 
-    try {
-      const res = await axios.post(
-        "http://localhost:8080/auth/login",
-        { userName, password },
-        { withCredentials: true } 
-      );
+  try {
+    const response = await loginService(userName, password);
+    console.log('SignIn - Respuesta del login:', response);
+    
+        const userData = {
+          userId: response.userId,
+          name: response.name,
+          userName: response.userName
+        };
 
-      console.log("Login exitoso:", res.data);
-      // Redirige al dashboard
-      navigate("/dashboard");
-    } catch (err) {
-      console.error("Error de login:", err);
-      setError("Credenciales inválidas o error del servidor");
-    }
-  };
+        // Extraer el nombre del rol
+        const roleName = response.role?.name || response.role || '';
+        const rolesData = roleName ? [roleName] : [];
+        const tokenData = response.token || response.accessToken;
+      
+        console.log('SignIn - userData:', userData);
+        console.log('SignIn - rolesData:', rolesData);
+        console.log('SignIn - tokenData:', tokenData);
+      
+        // Guardar datos en el contexto
+        login({
+          user: userData,
+          role: response.role, // Pasamos el objeto role completo
+          roles: rolesData,
+          token: tokenData
+        });
+
+        // Redirigir al dashboard
+        navigate("/dashboard/home");
+      } catch (err) {
+        console.error("Error de login:", err);
+        setError(err.response?.data?.message || "Credenciales inválidas o error del servidor");
+      } finally {
+        setLoading(false);
+      }
+    };
 
   return (
     <section className="m-8 flex gap-4">
@@ -72,6 +97,7 @@ export function SignIn() {
               labelProps={{
                 className: "before:content-none after:content-none",
               }}
+              disabled={loading}
             />
 
             <Typography
@@ -91,6 +117,7 @@ export function SignIn() {
               labelProps={{
                 className: "before:content-none after:content-none",
               }}
+              disabled={loading}
             />
           </div>
 
@@ -111,10 +138,11 @@ export function SignIn() {
               </Typography>
             }
             containerProps={{ className: "-ml-2.5" }}
+            disabled={loading}
           />
 
-          <Button type="submit" className="mt-6" fullWidth>
-            Sign In
+          <Button type="submit" className="mt-6" fullWidth disabled={loading}>
+            {loading ? "Iniciando sesión..." : "Iniciar Sesión"}
           </Button>
 
           <Typography

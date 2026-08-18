@@ -1,0 +1,14 @@
+# Dockerfile.dev - Para desarrollo con Hot Reload
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Instala dependencias
+COPY package*.json ./
+RUN npm install
+
+# Expone el puerto de Vite (5173 por defecto)
+EXPOSE 5173
+
+# Comando para desarrollo con host expuesto
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

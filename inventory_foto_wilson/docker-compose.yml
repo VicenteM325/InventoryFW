@@ -1,0 +1,58 @@
+services:
+  postgres_db:
+    image: postgres:15-alpine
+    container_name: postgres_db
+    environment:
+      POSTGRES_DB: inventory_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secretpassword
+    ports:
+      - "5433:5432"
+    volumes:
+      - inventory_back_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d inventory_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  inventory_backend:
+    build: ./inventory_back
+    container_name: inventory_backend
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+
+
+  # --- SERVICIO DE DESARROLLO PARA FRONTEND ---
+  inventory_frontend_dev:
+    build:
+      context: ./inventory_front
+      dockerfile: Dockerfile.dev 
+    container_name: inventory_frontend_dev
+    ports:
+      - "5173:5173"  # Puerto de Vite
+    volumes:
+      - ./inventory_front:/app       
+      - /app/node_modules             
+    environment:
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true        
+      - VITE_API_URL=http://localhost:8080  
+    depends_on:
+      - inventory_backend
+
+  # --- SERVICIO DE PRODUCCIÓN ---
+  inventory_frontend:
+    build: ./inventory_front
+    container_name: inventory_frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - inventory_backend
+  
+
+volumes:
+  inventory_back_postgres_data:
