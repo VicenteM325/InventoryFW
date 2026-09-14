@@ -47,6 +47,12 @@ public class AuthController {
         return ResponseEntity.ok().body("Autenticado");
     }
 
+    @PostMapping("/logout")
+    public ResponseEntity<ApiMessage> logout(HttpServletResponse response){
+        authService.logout(response);
+        return ResponseEntity.ok(new ApiMessage("Sesión cerrada"));
+    }
+
     @GetMapping("/user/details")
     public ResponseEntity<User> getAuthenticateUser(){
         User user = userService.getUserDetails();
