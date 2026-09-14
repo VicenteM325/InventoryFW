@@ -33,7 +33,6 @@ public class AuthService {
     }
 
     public String authenticate(String username, String password, HttpServletResponse response){
-        System.out.println("DB password: " + userService.findByUserName(username).getPassword());
         UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(username,password);
         Authentication authResult = authenticationManagerBuilder.getObject().authenticate(authenticationToken);
         SecurityContextHolder.getContext().setAuthentication(authResult);
