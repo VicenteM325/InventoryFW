@@ -1,5 +1,6 @@
 package com.vm325.inventory_back.services;
 
+import com.vm325.inventory_back.config.InventoryProperties;
 import com.vm325.inventory_back.dtos.ProductRequestDto;
 import com.vm325.inventory_back.dtos.ProductResponseDto;
 import com.vm325.inventory_back.entities.Product;
@@ -15,10 +16,9 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class ProductServiceImpl implements ProductService {
-    // Regla de negocio del Proceso 1 (BPM): stock mínimo = 2 unidades por modelo.
-    public static final int STOCK_MINIMO = 1;
 
     private final ProductRepository productRepository;
+    private final InventoryProperties inventoryProperties;
 
     @Override
     public ProductResponseDto create(ProductRequestDto dto) {
@@ -77,7 +77,7 @@ public class ProductServiceImpl implements ProductService {
         String stockStatus;
         if (product.getStock() <= 0) {
             stockStatus = "AGOTADO";
-        } else if (product.getStock() < STOCK_MINIMO) {
+        } else if (product.getStock() < inventoryProperties.getStockMinimo()) {
             stockStatus = "STOCK_BAJO";
         } else {
             stockStatus = "DISPONIBLE";
