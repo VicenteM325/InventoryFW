@@ -51,7 +51,10 @@ services:
 
   # --- SERVICIO DE PRODUCCIÓN ---
   inventory_frontend:
-    build: ./inventory_front
+    build:
+      context: ./inventory_front
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
     container_name: inventory_frontend
     ports:
       - "3000:80"
