@@ -30,7 +30,7 @@ public class ProductController {
     }
 
     // Solo Administrador puede eliminar productos
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         productService.delete(id);
