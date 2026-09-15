@@ -1,5 +1,6 @@
 package com.vm325.inventory_back.controllers;
 
+import com.vm325.inventory_back.imaging.EnhancementSettings;
 import com.vm325.inventory_back.imaging.OutputFormat;
 import com.vm325.inventory_back.services.DpiDocumentService;
 import lombok.RequiredArgsConstructor;
@@ -34,10 +35,17 @@ public class DocumentController {
             @RequestParam("front") MultipartFile front,
             @RequestParam("back") MultipartFile back,
             @RequestParam(defaultValue = "PDF") String format,
-            @RequestParam(required = false) String clientName) {
+            @RequestParam(required = false) String clientName,
+            @RequestParam(defaultValue = "0") int brightness,
+            @RequestParam(defaultValue = "0") int contrast,
+            @RequestParam(defaultValue = "15") int sharpness,
+            @RequestParam(defaultValue = "0") int frontRotation,
+            @RequestParam(defaultValue = "0") int backRotation) {
 
         OutputFormat outputFormat = parseFormat(format);
-        byte[] document = dpiDocumentService.generate(front, back, outputFormat, clientName);
+        EnhancementSettings settings = new EnhancementSettings(brightness, contrast, sharpness);
+        byte[] document = dpiDocumentService.generate(front, back, outputFormat, clientName,
+                settings, frontRotation, backRotation);
 
         String filename = "dpi_" + LocalDateTime.now().format(FILENAME_TIMESTAMP)
                 + "." + outputFormat.getFileExtension();
@@ -46,6 +54,27 @@ public class DocumentController {
                 .contentType(MediaType.parseMediaType(outputFormat.getContentType()))
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
                 .body(document);
+    }
+
+    // Vista previa de una sola imagen (recorte + ajuste) para que el
+    // frontend la muestre antes de comprometerse a generar el documento
+    // final; reutiliza el mismo servicio y por lo tanto el mismo
+    // procesamiento que generateDpiDocument.
+    @PreAuthorize("hasAnyRole('ADMIN','EMPLOYEE')")
+    @PostMapping(value = "/dpi/preview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.IMAGE_PNG_VALUE)
+    public ResponseEntity<byte[]> previewDpiImage(
+            @RequestParam("image") MultipartFile image,
+            @RequestParam("side") String side,
+            @RequestParam(defaultValue = "0") int brightness,
+            @RequestParam(defaultValue = "0") int contrast,
+            @RequestParam(defaultValue = "15") int sharpness,
+            @RequestParam(defaultValue = "0") int rotation) {
+
+        String label = "front".equalsIgnoreCase(side) ? "anverso" : "reverso";
+        EnhancementSettings settings = new EnhancementSettings(brightness, contrast, sharpness);
+        byte[] png = dpiDocumentService.previewImage(image, label, settings, rotation);
+
+        return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(png);
     }
 
     private OutputFormat parseFormat(String format) {

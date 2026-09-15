@@ -1,5 +1,6 @@
 package com.vm325.inventory_back.services;
 
+import com.vm325.inventory_back.imaging.EnhancementSettings;
 import com.vm325.inventory_back.imaging.OutputFormat;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -15,7 +16,23 @@ public interface DpiDocumentService {
      * @param clientName nombre del cliente, opcional, usado solo para el
      *                    mensaje de la notificación generada (no se persiste
      *                    ningún dato del documento en sí).
+     * @param settings ajuste de color/nitidez, compartido entre anverso y
+     *                 reverso (se fotografían en la misma sesión/luz).
+     * @param frontRotation giro manual (0/90/180/270) para el anverso.
+     * @param backRotation giro manual (0/90/180/270) para el reverso.
      * @return el documento generado, listo para enviarse como descarga.
      */
-    byte[] generate(MultipartFile front, MultipartFile back, OutputFormat format, String clientName);
+    byte[] generate(MultipartFile front, MultipartFile back, OutputFormat format, String clientName,
+                     EnhancementSettings settings, int frontRotation, int backRotation);
+
+    /**
+     * Procesa una sola imagen (recorte + mejora) y la devuelve como PNG,
+     * para que el frontend la muestre antes de generar el documento final.
+     * Reutiliza exactamente el mismo procesamiento que {@link #generate},
+     * así que lo que se ve en la vista previa es lo que termina en el
+     * documento.
+     *
+     * @param side  "anverso" o "reverso", solo para el mensaje de error.
+     */
+    byte[] previewImage(MultipartFile image, String side, EnhancementSettings settings, int rotation);
 }
