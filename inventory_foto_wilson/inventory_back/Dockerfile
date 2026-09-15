@@ -19,4 +19,10 @@ COPY --from=build /app/target/*.jar app.jar
 
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Sin esto, la JVM usa UTC (zona horaria por defecto de la imagen base),
+# así que todas las marcas de tiempo de negocio (fecha de venta, creación
+# de alertas/notificaciones) quedarían 6 horas adelantadas respecto a la
+# hora real de Guatemala, donde opera Multiservicios Wilson - visible por
+# ejemplo en que "Ventas de hoy" del dashboard no contaría ventas hechas
+# en la tarde/noche local.
+ENTRYPOINT ["java", "-Duser.timezone=America/Guatemala", "-jar", "app.jar"]
