@@ -3,6 +3,19 @@
 --   Motor: PostgreSQL
 --   Autor: Rocael
 -- ========================================
+--
+-- NOTA (referencia histórica, no ejecutado por la aplicación):
+-- Este script fue el diseño original de base de datos y se conserva aquí
+-- solo como documentación de esa etapa temprana del proyecto. El backend
+-- real NUNCA lo ejecuta: el esquema efectivo vive versionado en
+-- inventory_back/src/main/resources/db/migration/ (Flyway), que es la
+-- única fuente de verdad del esquema. En particular, los triggers
+-- trg_update_product_stock/trg_restore_product_stock de este archivo NO
+-- deben aplicarse contra la base real, porque duplicarían el descuento de
+-- stock que SaleServiceImpl ya realiza en código Java; y las tablas
+-- service/service_detail aquí definidas no tienen entidades JPA
+-- equivalentes (quedaron pensadas para un alcance que no se implementó).
+-- ========================================
 
 -- Extensión para UUIDs
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
