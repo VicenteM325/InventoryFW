@@ -5,6 +5,7 @@ import com.vm325.inventory_back.imaging.DocumentComposerFactory;
 import com.vm325.inventory_back.imaging.DocumentLayoutRegistry;
 import com.vm325.inventory_back.imaging.DocumentLayoutSpec;
 import com.vm325.inventory_back.imaging.DocumentType;
+import com.vm325.inventory_back.imaging.EnhancementSettings;
 import com.vm325.inventory_back.imaging.ImageCropService;
 import com.vm325.inventory_back.imaging.OutputFormat;
 import lombok.RequiredArgsConstructor;
@@ -56,7 +57,7 @@ public class DpiDocumentServiceImpl implements DpiDocumentService {
 
     private BufferedImage readAndCrop(MultipartFile file, DocumentLayoutSpec spec, String label) {
         try {
-            return imageCropService.cropAndFit(file.getBytes(), spec.cropSpec());
+            return imageCropService.cropAndFit(file.getBytes(), spec.cropSpec(), EnhancementSettings.DEFAULT);
         } catch (IllegalArgumentException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "La imagen de " + label + " no es válida: " + e.getMessage());

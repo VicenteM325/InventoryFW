@@ -11,12 +11,15 @@ import java.awt.image.BufferedImage;
 public interface ImageCropService {
 
     /**
-     * Decodifica una imagen cruda, la recorta centrada a la relación de
-     * aspecto de {@code spec} y la reescala a su resolución objetivo.
+     * Decodifica una imagen cruda, corrige su orientación, la recorta (por
+     * detección automática de borde o, si falla, centrada) a la relación de
+     * aspecto de {@code spec}, la reescala a su resolución objetivo y le
+     * aplica el ajuste de color/nitidez indicado por {@code settings}
+     * ({@link EnhancementSettings#DEFAULT} es el modo automático).
      *
      * @throws IllegalArgumentException si los bytes no representan una
      *                                  imagen decodificable (formato no
      *                                  soportado o archivo corrupto).
      */
-    BufferedImage cropAndFit(byte[] rawImage, CropSpec spec);
+    BufferedImage cropAndFit(byte[] rawImage, CropSpec spec, EnhancementSettings settings);
 }

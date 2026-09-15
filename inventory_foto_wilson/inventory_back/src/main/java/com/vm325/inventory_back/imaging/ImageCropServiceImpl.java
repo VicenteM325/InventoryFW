@@ -12,24 +12,27 @@ import java.io.IOException;
 
 /**
  * Corrige orientación EXIF, intenta detectar y enderezar automáticamente el
- * borde de la tarjeta con {@link CardDetectionService}, y si no encuentra un
- * contorno confiable cae al recorte centrado a la relación de aspecto
- * objetivo (Java2D/BufferedImage nativo del JDK, sin dependencias externas).
+ * borde de la tarjeta con {@link CardDetectionService} (o cae al recorte
+ * centrado si no encuentra un contorno confiable), reescala a la resolución
+ * objetivo y aplica el ajuste de color/nitidez de {@link ImageEnhancementService}.
  */
 @Service
 public class ImageCropServiceImpl implements ImageCropService {
 
     private final ExifOrientationNormalizer exifOrientationNormalizer;
     private final CardDetectionService cardDetectionService;
+    private final ImageEnhancementService imageEnhancementService;
 
     public ImageCropServiceImpl(ExifOrientationNormalizer exifOrientationNormalizer,
-                                 CardDetectionService cardDetectionService) {
+                                 CardDetectionService cardDetectionService,
+                                 ImageEnhancementService imageEnhancementService) {
         this.exifOrientationNormalizer = exifOrientationNormalizer;
         this.cardDetectionService = cardDetectionService;
+        this.imageEnhancementService = imageEnhancementService;
     }
 
     @Override
-    public BufferedImage cropAndFit(byte[] rawImage, CropSpec spec) {
+    public BufferedImage cropAndFit(byte[] rawImage, CropSpec spec, EnhancementSettings settings) {
         BufferedImage source;
         try {
             source = ImageIO.read(new ByteArrayInputStream(rawImage));
@@ -43,7 +46,8 @@ public class ImageCropServiceImpl implements ImageCropService {
         BufferedImage upright = exifOrientationNormalizer.normalize(rawImage, source);
         BufferedImage cropped = cardDetectionService.detectAndRectify(upright, spec)
                 .orElseGet(() -> centerCropToAspectRatio(upright, spec.aspectRatio()));
-        return scaleTo(cropped, spec.targetWidthPx(), spec.targetHeightPx());
+        BufferedImage scaled = scaleTo(cropped, spec.targetWidthPx(), spec.targetHeightPx());
+        return imageEnhancementService.enhance(scaled, settings);
     }
 
     private BufferedImage centerCropToAspectRatio(BufferedImage source, double targetAspectRatio) {
