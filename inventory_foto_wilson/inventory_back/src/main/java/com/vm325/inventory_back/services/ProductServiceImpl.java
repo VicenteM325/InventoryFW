@@ -1,6 +1,5 @@
 package com.vm325.inventory_back.services;
 
-import com.vm325.inventory_back.config.InventoryProperties;
 import com.vm325.inventory_back.dtos.ProductRequestDto;
 import com.vm325.inventory_back.dtos.ProductResponseDto;
 import com.vm325.inventory_back.entities.Product;
@@ -18,7 +17,7 @@ import java.util.stream.Collectors;
 public class ProductServiceImpl implements ProductService {
 
     private final ProductRepository productRepository;
-    private final InventoryProperties inventoryProperties;
+    private final StockStatusCalculator stockStatusCalculator;
 
     @Override
     public ProductResponseDto create(ProductRequestDto dto) {
@@ -74,14 +73,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     private ProductResponseDto toResponseDto(Product product) {
-        String stockStatus;
-        if (product.getStock() <= 0) {
-            stockStatus = "AGOTADO";
-        } else if (product.getStock() < inventoryProperties.getStockMinimo()) {
-            stockStatus = "STOCK_BAJO";
-        } else {
-            stockStatus = "DISPONIBLE";
-        }
+        String stockStatus = stockStatusCalculator.resolve(product.getStock());
 
         return ProductResponseDto.builder()
                 .productId(product.getProductId())
