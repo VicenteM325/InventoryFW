@@ -1,7 +1,9 @@
 package com.vm325.inventory_back.config;
 
 import com.vm325.inventory_back.dtos.ApiMessage;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -42,6 +44,15 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MissingServletRequestPartException.class)
     public ResponseEntity<ApiMessage> handleMissingPart(MissingServletRequestPartException ex){
         return ResponseEntity.badRequest().body(new ApiMessage("Falta el campo requerido: " + ex.getRequestPartName()));
+    }
+
+    // Un usuario autenticado sin el rol requerido por @PreAuthorize debe
+    // recibir 403, no el 500 genérico (AccessDeniedException también caía
+    // en el handler de abajo).
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiMessage> handleAccessDenied(AccessDeniedException ex){
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(new ApiMessage("No tiene permisos para realizar esta acción"));
     }
 
     @ExceptionHandler(Exception.class)
