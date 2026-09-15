@@ -5,10 +5,11 @@ import {
   Button,
   Typography,
 } from "@material-tailwind/react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useState, useContext } from "react";
 import { AuthContext } from "@/context/AuthContext";
-import { login as loginService } from "@/services/authService";
+import { login as loginService, getUserDetails } from "@/services/authService";
+import { getHomeByRole } from "@/auth/menuByRole";
 
 export function SignIn() {
   const [userName, setUserName] = useState("");
@@ -24,34 +25,18 @@ export function SignIn() {
   setLoading(true);
 
   try {
-    const response = await loginService(userName, password);
-    console.log('SignIn - Respuesta del login:', response);
-    
-        const userData = {
-          userId: response.userId,
-          name: response.name,
-          userName: response.userName
-        };
+    // POST /auth/login solo responde { message: "<ROL>" } y deja la
+    // sesión real en una cookie httpOnly (no en el cuerpo), así que el
+    // objeto de usuario (nombre, userId, rol completo) se obtiene con una
+    // segunda llamada, la misma que ya usa AuthContext.verifySession().
+    await loginService(userName, password);
+    const userDetails = await getUserDetails();
 
-        // Extraer el nombre del rol
-        const roleName = response.role?.name || response.role || '';
-        const rolesData = roleName ? [roleName] : [];
-        const tokenData = response.token || response.accessToken;
-      
-        console.log('SignIn - userData:', userData);
-        console.log('SignIn - rolesData:', rolesData);
-        console.log('SignIn - tokenData:', tokenData);
-      
-        // Guardar datos en el contexto
-        login({
-          user: userData,
-          role: response.role, // Pasamos el objeto role completo
-          roles: rolesData,
-          token: tokenData
-        });
+    login(userDetails);
 
-        // Redirigir al dashboard
-        navigate("/dashboard/home");
+    // Redirigir según el rol real ya guardado en el contexto
+    const roleName = userDetails.role?.name || userDetails.role || '';
+    navigate(getHomeByRole(roleName ? [roleName] : []));
       } catch (err) {
         console.error("Error de login:", err);
         setError(err.response?.data?.message || "Credenciales inválidas o error del servidor");
@@ -149,10 +134,7 @@ export function SignIn() {
             variant="paragraph"
             className="text-center text-blue-gray-500 font-medium mt-4"
           >
-            ¿No tienes cuenta?
-            <Link to="/auth/sign-up" className="text-gray-900 ml-1">
-              Crear cuenta
-            </Link>
+            Sistema interno de Multiservicios Wilson. Si no tienes una cuenta, solicítala a un administrador.
           </Typography>
         </form>
       </div>
