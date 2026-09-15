@@ -8,6 +8,7 @@ import {
   Footer,
 } from "@/widgets/layout";
 import routes from "@/routes";
+import RoleRoute from "@/components/RoleRoute";
 import { useMaterialTailwindController, setOpenConfigurator } from "@/context";
 
 export function Dashboard() {
@@ -38,8 +39,12 @@ export function Dashboard() {
           {routes.map(
             ({ layout, pages }) =>
               layout === "dashboard" &&
-              pages.map(({ path, element }) => (
-                <Route path={path} element={element} />
+              pages.map(({ path, element, roles }) => (
+                <Route
+                  key={path}
+                  path={path}
+                  element={<RoleRoute roles={roles}>{element}</RoleRoute>}
+                />
               ))
           )}
         </Routes>

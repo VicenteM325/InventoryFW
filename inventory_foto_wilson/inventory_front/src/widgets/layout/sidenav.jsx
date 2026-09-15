@@ -8,10 +8,14 @@ import {
   Typography,
 } from "@material-tailwind/react";
 import { useMaterialTailwindController, setOpenSidenav } from "@/context";
+import useAuth from "@/hooks/useAuth";
+import { filterRoutesForNavigation } from "@/auth/menuByRole";
 
 export function Sidenav({ brandImg, brandName, routes }) {
   const [controller, dispatch] = useMaterialTailwindController();
   const { sidenavColor, sidenavType, openSidenav } = controller;
+  const { roles } = useAuth();
+  const visibleRoutes = filterRoutesForNavigation(routes, roles);
   const sidenavTypes = {
     dark: "bg-gradient-to-br from-gray-800 to-gray-900",
     white: "bg-white shadow-sm",
@@ -45,7 +49,7 @@ export function Sidenav({ brandImg, brandName, routes }) {
         </IconButton>
       </div>
       <div className="m-4">
-        {routes
+        {visibleRoutes
           .filter(route => route.layout === "dashboard")
           .map(({ layout, title, pages }, key) => (
             <ul key={key} className="mb-4 flex flex-col gap-1">
