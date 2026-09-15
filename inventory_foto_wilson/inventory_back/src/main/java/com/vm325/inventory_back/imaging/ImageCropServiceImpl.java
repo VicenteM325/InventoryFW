@@ -11,20 +11,18 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 
 /**
- * Implementación con Java2D/BufferedImage nativo del JDK: sin dependencias
- * externas de procesamiento de imágenes. Recorta al centro (center-crop) a
- * la relación de aspecto objetivo y reescala con interpolación bilineal.
- * <p>
- * Nota de alcance: esta implementación no normaliza la orientación EXIF de
- * fotografías tomadas con cámara/celular (el metadato que indica si la
- * imagen debe rotarse antes de mostrarse). Para las fotos de DPI subidas
- * desde un navegador esto rara vez es un problema visible porque el propio
- * navegador ya suele mostrar la miniatura corregida antes de subirla, pero
- * queda documentado como una mejora futura si se detectan casos reales de
- * imágenes rotadas incorrectamente en el documento generado.
+ * Implementación con Java2D/BufferedImage nativo del JDK más un paso de
+ * corrección de orientación EXIF: recorta al centro (center-crop) a la
+ * relación de aspecto objetivo y reescala con interpolación bilineal.
  */
 @Service
 public class ImageCropServiceImpl implements ImageCropService {
+
+    private final ExifOrientationNormalizer exifOrientationNormalizer;
+
+    public ImageCropServiceImpl(ExifOrientationNormalizer exifOrientationNormalizer) {
+        this.exifOrientationNormalizer = exifOrientationNormalizer;
+    }
 
     @Override
     public BufferedImage cropAndFit(byte[] rawImage, CropSpec spec) {
@@ -38,7 +36,8 @@ public class ImageCropServiceImpl implements ImageCropService {
             throw new IllegalArgumentException("El archivo no es una imagen válida o su formato no es soportado");
         }
 
-        BufferedImage cropped = centerCropToAspectRatio(source, spec.aspectRatio());
+        BufferedImage upright = exifOrientationNormalizer.normalize(rawImage, source);
+        BufferedImage cropped = centerCropToAspectRatio(upright, spec.aspectRatio());
         return scaleTo(cropped, spec.targetWidthPx(), spec.targetHeightPx());
     }
 
