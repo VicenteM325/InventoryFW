@@ -29,6 +29,10 @@ public class UserService implements UserDetailsService {
         return new org.springframework.security.core.userdetails.User(
                 user.getUserName(),
                 user.getPassword(),
+                user.isActive(),
+                true,
+                true,
+                true,
                 Collections.singleton(authority)
         );
     }
