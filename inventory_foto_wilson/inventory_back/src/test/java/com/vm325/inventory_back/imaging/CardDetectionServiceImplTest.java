@@ -31,12 +31,34 @@ class CardDetectionServiceImplTest {
     }
 
     @Test
-    void detectAndRectify_rectanguloOcupaCasiTodoElCuadro_haceFallback() {
+    void detectAndRectify_tarjetaSobreFondoConPatron_seDetectaIgual() {
+        // Caso de regresión: un fondo con patrón de alto contraste (como una
+        // tela con lunares) rompía la estrategia anterior basada en brillo,
+        // porque el patrón generaba tanto o más contraste que el borde real
+        // de la tarjeta. La detección por bordes (Canny) + rectangularidad
+        // no depende del brillo y debe encontrar la tarjeta igual.
+        BufferedImage photo = rotatedCardOnPatternedBackground();
+
+        Optional<BufferedImage> result = service.detectAndRectify(photo, TEST_SPEC);
+
+        assertTrue(result.isPresent(), "Debería detectar la tarjeta a pesar del patrón de fondo");
+        assertEquals(TEST_SPEC.targetWidthPx(), result.get().getWidth());
+        assertEquals(TEST_SPEC.targetHeightPx(), result.get().getHeight());
+    }
+
+    @Test
+    void detectAndRectify_tarjetaOcupaCasiTodoElCuadro_seDetectaIgual() {
+        // Una tarjeta que llena casi todo el encuadre (foto ya bien
+        // recortada, o tomada muy de cerca) es un caso legítimo, no un
+        // artefacto de detección fallida: debe aceptarse igual, no
+        // descartarse solo por ser grande.
         BufferedImage photo = frameFillingCard();
 
         Optional<BufferedImage> result = service.detectAndRectify(photo, TEST_SPEC);
 
-        assertTrue(result.isEmpty(), "Un contorno que ocupa casi toda la foto debe descartarse, no 'detectarse'");
+        assertTrue(result.isPresent(), "Una tarjeta que ocupa casi todo el encuadre debe detectarse igual");
+        assertEquals(TEST_SPEC.targetWidthPx(), result.get().getWidth());
+        assertEquals(TEST_SPEC.targetHeightPx(), result.get().getHeight());
     }
 
     @Test
@@ -68,9 +90,40 @@ class CardDetectionServiceImplTest {
         return photo;
     }
 
+    private static BufferedImage rotatedCardOnPatternedBackground() {
+        int canvasSize = 600;
+        BufferedImage photo = new BufferedImage(canvasSize, canvasSize, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = photo.createGraphics();
+
+        g.setColor(new Color(40, 90, 200));
+        g.fillRect(0, 0, canvasSize, canvasSize);
+        g.setColor(new Color(235, 235, 235));
+        int dotSpacing = 40;
+        int dotDiameter = 28;
+        for (int x = 0; x < canvasSize; x += dotSpacing) {
+            for (int y = 0; y < canvasSize; y += dotSpacing) {
+                g.fillOval(x, y, dotDiameter, dotDiameter);
+            }
+        }
+
+        g.setColor(Color.BLACK);
+        g.rotate(Math.toRadians(20), canvasSize / 2.0, canvasSize / 2.0);
+        int cardWidth = 340;
+        int cardHeight = 215; // ~1011/638
+        g.fillRect((canvasSize - cardWidth) / 2, (canvasSize - cardHeight) / 2, cardWidth, cardHeight);
+        g.dispose();
+        return photo;
+    }
+
     private static BufferedImage frameFillingCard() {
-        int width = 502;
-        int height = 317;
+        // Canvas grande con un borde de 1px: dejar un margen holgado por
+        // encima de MAX_AREA_FRACTION (98%) para que el resultado no dependa
+        // de pequeñas variaciones de área introducidas por la apertura
+        // morfológica o por el ajuste de envolvente convexa/rectángulo de
+        // área mínima (a diferencia de un canvas chico, donde 1px de borde
+        // deja un margen de menos del 1% sobre el umbral).
+        int width = 1000;
+        int height = 631;
         BufferedImage photo = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
         Graphics2D g = photo.createGraphics();
         g.setColor(new Color(30, 30, 30));
@@ -78,6 +131,24 @@ class CardDetectionServiceImplTest {
         g.setColor(new Color(230, 230, 230));
         g.fillRect(1, 1, width - 2, height - 2);
         g.dispose();
+        // Un poco de ruido: una imagen perfectamente uniforme (sin ninguna
+        // variación de píxel a píxel) puede producir empates degenerados en
+        // el umbral de brillo local ("valor == media local" cuenta como
+        // primer plano en ambos lados), algo que una foto real con ruido de
+        // cámara nunca produce.
+        addNoise(photo);
         return photo;
+    }
+
+    private static void addNoise(BufferedImage image) {
+        java.util.Random random = new java.util.Random(42);
+        for (int x = 0; x < image.getWidth(); x++) {
+            for (int y = 0; y < image.getHeight(); y++) {
+                Color c = new Color(image.getRGB(x, y));
+                int delta = random.nextInt(21) - 10;
+                int gray = Math.max(0, Math.min(255, c.getRed() + delta));
+                image.setRGB(x, y, new Color(gray, gray, gray).getRGB());
+            }
+        }
     }
 }
