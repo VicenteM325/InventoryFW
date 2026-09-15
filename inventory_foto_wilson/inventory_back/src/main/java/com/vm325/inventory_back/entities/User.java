@@ -39,9 +39,18 @@ public class User {
     @JoinColumn(name = "role_id", nullable = false)
     private Role role;
 
+    /**
+     * Cuenta habilitada para iniciar sesión. Una cuenta desactivada
+     * conserva su historial (ventas registradas, etc.) pero no puede
+     * autenticarse (ver UserService.loadUserByUsername).
+     */
+    @Column(nullable = false)
+    private boolean active = true;
+
     public User(String userName, String password, Role role) {
         this.userName = userName;
         this.password = password;
         this.role = role;
+        this.active = true;
     }
 }
