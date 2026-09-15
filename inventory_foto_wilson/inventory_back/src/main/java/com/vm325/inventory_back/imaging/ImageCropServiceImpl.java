@@ -11,17 +11,21 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 
 /**
- * Implementación con Java2D/BufferedImage nativo del JDK más un paso de
- * corrección de orientación EXIF: recorta al centro (center-crop) a la
- * relación de aspecto objetivo y reescala con interpolación bilineal.
+ * Corrige orientación EXIF, intenta detectar y enderezar automáticamente el
+ * borde de la tarjeta con {@link CardDetectionService}, y si no encuentra un
+ * contorno confiable cae al recorte centrado a la relación de aspecto
+ * objetivo (Java2D/BufferedImage nativo del JDK, sin dependencias externas).
  */
 @Service
 public class ImageCropServiceImpl implements ImageCropService {
 
     private final ExifOrientationNormalizer exifOrientationNormalizer;
+    private final CardDetectionService cardDetectionService;
 
-    public ImageCropServiceImpl(ExifOrientationNormalizer exifOrientationNormalizer) {
+    public ImageCropServiceImpl(ExifOrientationNormalizer exifOrientationNormalizer,
+                                 CardDetectionService cardDetectionService) {
         this.exifOrientationNormalizer = exifOrientationNormalizer;
+        this.cardDetectionService = cardDetectionService;
     }
 
     @Override
@@ -37,7 +41,8 @@ public class ImageCropServiceImpl implements ImageCropService {
         }
 
         BufferedImage upright = exifOrientationNormalizer.normalize(rawImage, source);
-        BufferedImage cropped = centerCropToAspectRatio(upright, spec.aspectRatio());
+        BufferedImage cropped = cardDetectionService.detectAndRectify(upright, spec)
+                .orElseGet(() -> centerCropToAspectRatio(upright, spec.aspectRatio()));
         return scaleTo(cropped, spec.targetWidthPx(), spec.targetHeightPx());
     }
 

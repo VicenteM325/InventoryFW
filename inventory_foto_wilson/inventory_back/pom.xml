@@ -101,6 +101,16 @@
             <artifactId>metadata-extractor</artifactId>
             <version>2.21.0</version>
         </dependency>
+        <dependency>
+            <groupId>org.boofcv</groupId>
+            <artifactId>boofcv-core</artifactId>
+            <version>1.4.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.boofcv</groupId>
+            <artifactId>boofcv-io</artifactId>
+            <version>1.4.0</version>
+        </dependency>
 	</dependencies>
 
 	<build>
