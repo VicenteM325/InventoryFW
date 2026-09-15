@@ -4,6 +4,7 @@ import com.vm325.inventory_back.dtos.ApiMessage;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -53,6 +54,14 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiMessage> handleAccessDenied(AccessDeniedException ex){
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(new ApiMessage("No tiene permisos para realizar esta acción"));
+    }
+
+    // GET /auth/user/details sin sesión activa resuelve a un principal
+    // "anónimo" que UserService.getUserDetails() no encuentra en la BD,
+    // lanzando esto: debe verse como 401 (no autenticado), no 500.
+    @ExceptionHandler(UsernameNotFoundException.class)
+    public ResponseEntity<ApiMessage> handleUsernameNotFound(UsernameNotFoundException ex){
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ApiMessage("No autenticado"));
     }
 
     @ExceptionHandler(Exception.class)
