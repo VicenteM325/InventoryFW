@@ -15,9 +15,12 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Set;
+import javax.imageio.ImageIO;
 
 @Service
 @RequiredArgsConstructor
@@ -31,14 +34,15 @@ public class DpiDocumentServiceImpl implements DpiDocumentService {
     private final NotificationService notificationService;
 
     @Override
-    public byte[] generate(MultipartFile front, MultipartFile back, OutputFormat format, String clientName) {
+    public byte[] generate(MultipartFile front, MultipartFile back, OutputFormat format, String clientName,
+                            EnhancementSettings settings, int frontRotation, int backRotation) {
         validateImage(front, "anverso");
         validateImage(back, "reverso");
 
         DocumentLayoutSpec spec = documentLayoutRegistry.getSpec(DocumentType.DPI);
 
-        BufferedImage frontImage = readAndCrop(front, spec, "anverso");
-        BufferedImage backImage = readAndCrop(back, spec, "reverso");
+        BufferedImage frontImage = readAndCrop(front, spec, "anverso", settings, frontRotation);
+        BufferedImage backImage = readAndCrop(back, spec, "reverso", settings, backRotation);
 
         byte[] document = documentComposerFactory.get(format)
                 .compose(List.of(frontImage, backImage), spec);
@@ -55,9 +59,25 @@ public class DpiDocumentServiceImpl implements DpiDocumentService {
         return document;
     }
 
-    private BufferedImage readAndCrop(MultipartFile file, DocumentLayoutSpec spec, String label) {
+    @Override
+    public byte[] previewImage(MultipartFile image, String side, EnhancementSettings settings, int rotation) {
+        validateImage(image, side);
+        DocumentLayoutSpec spec = documentLayoutRegistry.getSpec(DocumentType.DPI);
+        BufferedImage processed = readAndCrop(image, spec, side, settings, rotation);
+
         try {
-            return imageCropService.cropAndFit(file.getBytes(), spec.cropSpec(), EnhancementSettings.DEFAULT, 0);
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            ImageIO.write(processed, "png", out);
+            return out.toByteArray();
+        } catch (IOException e) {
+            throw new UncheckedIOException("Error codificando la vista previa a PNG", e);
+        }
+    }
+
+    private BufferedImage readAndCrop(MultipartFile file, DocumentLayoutSpec spec, String label,
+                                       EnhancementSettings settings, int rotation) {
+        try {
+            return imageCropService.cropAndFit(file.getBytes(), spec.cropSpec(), settings, rotation);
         } catch (IllegalArgumentException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "La imagen de " + label + " no es válida: " + e.getMessage());
