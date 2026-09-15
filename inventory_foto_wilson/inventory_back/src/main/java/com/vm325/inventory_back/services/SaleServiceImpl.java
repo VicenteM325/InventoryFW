@@ -7,6 +7,7 @@ import com.vm325.inventory_back.entities.Sale;
 import com.vm325.inventory_back.entities.SaleDetail;
 import com.vm325.inventory_back.entities.StockAlert;
 import com.vm325.inventory_back.entities.User;
+import com.vm325.inventory_back.enums.NotificationType;
 import com.vm325.inventory_back.enums.StockAlertStatus;
 import com.vm325.inventory_back.repositories.ProductRepository;
 import com.vm325.inventory_back.repositories.SaleRepository;
@@ -32,6 +33,7 @@ public class SaleServiceImpl implements SaleService {
     private final StockAlertRepository stockAlertRepository;
     private final UserRepository userRepository;
     private final InventoryProperties inventoryProperties;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -112,8 +114,16 @@ public class SaleServiceImpl implements SaleService {
                             .product(product)
                             .stockAtAlert(product.getStock())
                             .build();
-                    stockAlertRepository.save(alert);
+                    StockAlert savedAlert = stockAlertRepository.save(alert);
                     alertedProductIds.add(product.getProductId());
+
+                    notificationService.notify(
+                            NotificationType.STOCK_BAJO,
+                            "Stock bajo: " + product.getName() + " quedó con " + product.getStock() + " unidades",
+                            "StockAlert",
+                            savedAlert.getStockAlertId(),
+                            null
+                    );
                 }
             }
 
