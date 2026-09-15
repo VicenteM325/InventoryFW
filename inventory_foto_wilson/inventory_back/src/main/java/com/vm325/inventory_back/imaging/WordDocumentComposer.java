@@ -35,6 +35,7 @@ public class WordDocumentComposer implements DocumentComposer {
     @Override
     public byte[] compose(List<BufferedImage> images, DocumentLayoutSpec spec) {
         float contentWidthPt = (float) (spec.pageWidthPt() - 2 * spec.marginPt());
+        float contentHeightPt = (float) (spec.pageHeightPt() - 2 * spec.marginPt());
         boolean hasLabels = !spec.labels().isEmpty();
 
         try (XWPFDocument doc = new XWPFDocument()) {
@@ -53,6 +54,10 @@ public class WordDocumentComposer implements DocumentComposer {
                 float imageAspectRatio = (float) image.getWidth() / image.getHeight();
                 float drawWidthPt = contentWidthPt;
                 float drawHeightPt = drawWidthPt / imageAspectRatio;
+                if (drawHeightPt > contentHeightPt) {
+                    drawHeightPt = contentHeightPt;
+                    drawWidthPt = drawHeightPt * imageAspectRatio;
+                }
 
                 byte[] pngBytes = toPng(image);
                 XWPFParagraph imageParagraph = doc.createParagraph();

@@ -34,7 +34,7 @@ public class DocumentLayoutRegistry {
                 MARGIN_PT,
                 DPI_CARD_CROP,
                 2,
-                List.of("ANVERSO", "REVERSO")
+                List.of()
         ));
         // DocumentType.CEDULA_PASAPORTE queda intencionalmente sin registrar:
         // es el Proceso 3, documentado pero fuera del alcance de esta fase.
