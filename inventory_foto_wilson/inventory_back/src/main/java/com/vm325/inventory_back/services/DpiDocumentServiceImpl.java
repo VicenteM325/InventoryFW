@@ -57,7 +57,7 @@ public class DpiDocumentServiceImpl implements DpiDocumentService {
 
     private BufferedImage readAndCrop(MultipartFile file, DocumentLayoutSpec spec, String label) {
         try {
-            return imageCropService.cropAndFit(file.getBytes(), spec.cropSpec(), EnhancementSettings.DEFAULT);
+            return imageCropService.cropAndFit(file.getBytes(), spec.cropSpec(), EnhancementSettings.DEFAULT, 0);
         } catch (IllegalArgumentException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "La imagen de " + label + " no es válida: " + e.getMessage());
