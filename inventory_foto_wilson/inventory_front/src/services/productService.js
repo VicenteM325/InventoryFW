@@ -8,4 +8,5 @@ export const productService = {
   create: (data) => api.post(API_URL, data).then(res => res.data),
   update: (id, data) => api.put(`${API_URL}/${id}`, data).then(res => res.data),
   delete: (id) => api.delete(`${API_URL}/${id}`),
+  activate: (id) => api.patch(`${API_URL}/${id}/activate`).then(res => res.data),
 };

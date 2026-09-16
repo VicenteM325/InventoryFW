@@ -12,7 +12,6 @@ import {
 } from "@material-tailwind/react";
 import {
   PencilIcon,
-  TrashIcon,
   EyeIcon,
   PlusIcon,
 } from "@heroicons/react/24/outline";
@@ -46,15 +45,19 @@ export function Products() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm('¿Estás seguro de eliminar este producto?')) {
-      try {
-        await productService.delete(id);
-        await fetchProducts();
-      } catch (error) {
-        console.error('Error deleting product:', error);
-        alert(error.response?.data?.message || 'Error al eliminar el producto');
+  const toggleActive = async (product) => {
+    const action = product.active ? 'desactivar' : 'activar';
+    if (!window.confirm(`¿Seguro que quieres ${action} este producto?`)) return;
+    try {
+      if (product.active) {
+        await productService.delete(product.productId);
+      } else {
+        await productService.activate(product.productId);
       }
+      await fetchProducts();
+    } catch (error) {
+      console.error('Error toggling product active state:', error);
+      alert(error.response?.data?.message || `Error al ${action} el producto`);
     }
   };
 
@@ -177,15 +180,14 @@ export function Products() {
                         </IconButton>
                       </Tooltip>
                       {isAdmin && (
-                        <Tooltip content="Eliminar">
-                          <IconButton
-                            variant="text"
-                            color="red"
-                            onClick={() => handleDelete(product.productId)}
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                          </IconButton>
-                        </Tooltip>
+                        <Button
+                          size="sm"
+                          variant="outlined"
+                          color={product.active ? 'red' : 'green'}
+                          onClick={() => toggleActive(product)}
+                        >
+                          {product.active ? 'Desactivar' : 'Activar'}
+                        </Button>
                       )}
                     </div>
                   </td>

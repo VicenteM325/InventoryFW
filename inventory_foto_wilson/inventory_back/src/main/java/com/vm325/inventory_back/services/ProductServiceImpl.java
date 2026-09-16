@@ -62,9 +62,21 @@ public class ProductServiceImpl implements ProductService {
         return toResponseDto(productRepository.save(product));
     }
 
+    // RF-02 pide "baja", no borrado físico: esto también evita que borrar un
+    // producto con ventas/alertas históricas falle por la restricción de FK
+    // (sale_detail/stock_alert no tienen ON DELETE CASCADE).
     @Override
     public void delete(Long id) {
-        productRepository.delete(getProductOrThrow(id));
+        Product product = getProductOrThrow(id);
+        product.setActive(false);
+        productRepository.save(product);
+    }
+
+    @Override
+    public ProductResponseDto activate(Long id) {
+        Product product = getProductOrThrow(id);
+        product.setActive(true);
+        return toResponseDto(productRepository.save(product));
     }
 
     private Supplier resolveSupplier(Long supplierId) {
