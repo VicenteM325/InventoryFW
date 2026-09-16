@@ -9,6 +9,7 @@ import {
   DocumentTextIcon,
   ChartBarIcon,
   UsersIcon,
+  TruckIcon,
 } from "@heroicons/react/24/solid";
 import { Home, Profile } from "@/pages/dashboard";
 import { SignIn } from "@/pages/auth";
@@ -17,6 +18,7 @@ import { Sales, Alerts } from "@/pages/dashboard/sale";
 import { DpiDocuments } from "@/pages/dashboard/documents";
 import { Reports } from "@/pages/dashboard/reports";
 import { Users } from "@/pages/dashboard/users";
+import { Suppliers } from "@/pages/dashboard/suppliers";
 
 const icon = {
   className: "w-5 h-5 text-inherit",
@@ -64,6 +66,13 @@ export const routes = [
         hidden: true,
       },
        {
+        icon: <TruckIcon {...icon} />,
+        name: "Proveedores",
+        path: "/suppliers",
+        element: <Suppliers />,
+        roles: ["ROLE_ADMIN", "ROLE_EMPLOYEE"],
+      },
+      {
         icon: <TableCellsIcon {...icon} />,
         name: "Ventas",
         path: "/sales",
