@@ -22,8 +22,12 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Rutas públicas donde un 401 es esperado (p.ej. la landing revisa si hay
+// sesión activa al cargar) y no debe forzar una redirección a login.
+const PUBLIC_PATHS_WITHOUT_REDIRECT = ['/', '/auth/sign-in'];
+
 // Ante una respuesta 401, la sesión ya no es válida: limpiar el estado local
-// y redirigir a login (salvo que ya estemos ahí).
+// y redirigir a login (salvo que ya estemos en una ruta pública).
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -32,7 +36,7 @@ api.interceptors.response.use(
       localStorage.removeItem('user');
       localStorage.removeItem('roles');
 
-      if (!window.location.pathname.includes('/auth/sign-in')) {
+      if (!PUBLIC_PATHS_WITHOUT_REDIRECT.includes(window.location.pathname)) {
         window.location.href = '/auth/sign-in';
       }
     }
