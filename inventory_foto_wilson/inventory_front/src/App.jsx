@@ -4,6 +4,7 @@ import PrivateRoute from '@/components/PrivateRoute';
 import GuestRoute from '@/components/GuestRoute';
 import { useAuth } from '@/hooks/useAuth';
 import { getHomeByRole } from '@/auth/menuByRole';
+import { Landing } from '@/pages/landing';
 
 function App() {
   const { user, roles, loading } = useAuth();
@@ -41,16 +42,16 @@ function App() {
         }
       />
 
-      {/* RUTA RAIZ - Redirige según autenticación */}
-      <Route 
-        path="/" 
+      {/* RUTA RAIZ - Landing pública para visitantes, dashboard para quien ya inició sesión */}
+      <Route
+        path="/"
         element={
           user ? (
             <Navigate to={getHomeByRole(roles)} replace />
           ) : (
-            <Navigate to="/auth/sign-in" replace />
+            <Landing />
           )
-        } 
+        }
       />
 
       {/* CUALQUIER OTRA RUTA */}
