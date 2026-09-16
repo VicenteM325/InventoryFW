@@ -112,6 +112,7 @@ export function Home() {
                       </Typography>
                       <Typography variant="small" color="gray">
                         Stock actual: {alert.stockAtAlert}
+                        {alert.supplierName ? ` · Proveedor: ${alert.supplierName}` : ''}
                       </Typography>
                     </div>
                     <Chip value="Pendiente" color="red" size="sm" />
