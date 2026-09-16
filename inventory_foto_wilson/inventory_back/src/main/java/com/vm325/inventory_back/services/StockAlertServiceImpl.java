@@ -41,10 +41,12 @@ public class StockAlertServiceImpl implements StockAlertService {
     }
 
     private StockAlertResponseDto toDto(StockAlert alert) {
+        var supplier = alert.getProduct().getSupplier();
         return StockAlertResponseDto.builder()
                 .stockAlertId(alert.getStockAlertId())
                 .productId(alert.getProduct().getProductId())
                 .productName(alert.getProduct().getName())
+                .supplierName(supplier != null ? supplier.getName() : null)
                 .stockAtAlert(alert.getStockAtAlert())
                 .status(alert.getStatus())
                 .createdAt(alert.getCreatedAt())
