@@ -1,11 +1,14 @@
 package com.vm325.inventory_back.entities;
 
+import com.vm325.inventory_back.enums.ProductCategory;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
+import java.math.BigDecimal;
 
 @Entity
 @Table(name = "product")
@@ -32,4 +35,24 @@ public class Product {
     @Column(nullable = false)
     @Builder.Default
     private Integer stock = 0;
+
+    @Column(nullable = false, precision = 10, scale = 2)
+    @Builder.Default
+    private BigDecimal price = BigDecimal.ZERO;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private ProductCategory category;
+
+    @Column(name = "min_stock", nullable = false)
+    @Builder.Default
+    private Integer minStock = 2;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean active = true;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "supplier_id")
+    private Supplier supplier;
 }
