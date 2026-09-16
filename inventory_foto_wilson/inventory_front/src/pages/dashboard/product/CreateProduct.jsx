@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Card,
@@ -6,25 +6,41 @@ import {
   Input,
   Textarea,
   Button,
+  Select,
+  Option,
 } from "@material-tailwind/react";
 import { productService } from "@/services/productService";
+import { supplierService } from "@/services/supplierService";
+
+const EMPTY_FORM = {
+  name: '',
+  barcode: '',
+  description: '',
+  stock: 0,
+  price: '',
+  category: '',
+  minStock: 2,
+  supplierId: '',
+};
 
 export function CreateProduct() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    barcode: '',
-    description: '',
-    stock: 0,
-  });
+  const [suppliers, setSuppliers] = useState([]);
+  const [formData, setFormData] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
+
+  useEffect(() => {
+    supplierService.getAll().then(setSuppliers).catch(() => setSuppliers([]));
+  }, []);
 
   const validateForm = () => {
     const newErrors = {};
     if (!formData.name.trim()) newErrors.name = 'El nombre es obligatorio';
     if (!formData.barcode.trim()) newErrors.barcode = 'El código de barras es obligatorio';
     if (formData.stock < 0) newErrors.stock = 'El stock no puede ser negativo';
+    if (formData.price === '' || Number(formData.price) < 0) newErrors.price = 'El precio es obligatorio';
+    if (!formData.category) newErrors.category = 'La categoría es obligatoria';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -33,7 +49,7 @@ export function CreateProduct() {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: name === 'stock' ? parseInt(value) || 0 : value
+      [name]: name === 'stock' || name === 'minStock' ? parseInt(value) || 0 : value
     }));
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
@@ -46,7 +62,11 @@ export function CreateProduct() {
 
     setLoading(true);
     try {
-      await productService.create(formData);
+      await productService.create({
+        ...formData,
+        price: parseFloat(formData.price),
+        supplierId: formData.supplierId ? parseInt(formData.supplierId) : null,
+      });
       navigate('/products');
     } catch (error) {
       console.error('Error creating product:', error);
@@ -105,20 +125,86 @@ export function CreateProduct() {
             />
           </div>
 
-          <div>
-            <Input
-              label="Stock inicial"
-              type="number"
-              name="stock"
-              value={formData.stock}
-              onChange={handleChange}
-              error={!!errors.stock}
-            />
-            {errors.stock && (
-              <Typography variant="small" color="red" className="mt-1">
-                {errors.stock}
-              </Typography>
-            )}
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div>
+              <Select
+                label="Categoría"
+                value={formData.category}
+                onChange={(value) => {
+                  setFormData(prev => ({ ...prev, category: value }));
+                  setErrors(prev => ({ ...prev, category: '' }));
+                }}
+              >
+                <Option value="CELULAR">Celular</Option>
+                <Option value="ACCESORIO">Accesorio</Option>
+              </Select>
+              {errors.category && (
+                <Typography variant="small" color="red" className="mt-1">
+                  {errors.category}
+                </Typography>
+              )}
+            </div>
+
+            <div>
+              <Select
+                label="Proveedor (opcional)"
+                value={formData.supplierId}
+                onChange={(value) => setFormData(prev => ({ ...prev, supplierId: value }))}
+              >
+                {suppliers.map((supplier) => (
+                  <Option key={supplier.supplierId} value={supplier.supplierId.toString()}>
+                    {supplier.name}
+                  </Option>
+                ))}
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+            <div>
+              <Input
+                label="Precio de venta (Q)"
+                type="number"
+                step="0.01"
+                min="0"
+                name="price"
+                value={formData.price}
+                onChange={handleChange}
+                error={!!errors.price}
+              />
+              {errors.price && (
+                <Typography variant="small" color="red" className="mt-1">
+                  {errors.price}
+                </Typography>
+              )}
+            </div>
+
+            <div>
+              <Input
+                label="Stock inicial"
+                type="number"
+                name="stock"
+                value={formData.stock}
+                onChange={handleChange}
+                error={!!errors.stock}
+              />
+              {errors.stock && (
+                <Typography variant="small" color="red" className="mt-1">
+                  {errors.stock}
+                </Typography>
+              )}
+            </div>
+
+            <div>
+              <Input
+                label="Stock mínimo"
+                type="number"
+                min="0"
+                name="minStock"
+                value={formData.minStock}
+                onChange={handleChange}
+              />
+            </div>
           </div>
 
           <div className="flex justify-end gap-4">

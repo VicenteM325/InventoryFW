@@ -6,24 +6,35 @@ import {
   Input,
   Textarea,
   Button,
+  Select,
+  Option,
   Spinner,
 } from "@material-tailwind/react";
 import { productService } from "@/services/productService";
+import { supplierService } from "@/services/supplierService";
+
+const EMPTY_FORM = {
+  name: '',
+  barcode: '',
+  description: '',
+  stock: 0,
+  price: '',
+  category: '',
+  minStock: 2,
+  supplierId: '',
+};
 
 export function EditProduct() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    barcode: '',
-    description: '',
-    stock: 0,
-  });
+  const [suppliers, setSuppliers] = useState([]);
+  const [formData, setFormData] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
+    supplierService.getAll().then(setSuppliers).catch(() => setSuppliers([]));
     fetchProduct();
   }, [id]);
 
@@ -36,6 +47,10 @@ export function EditProduct() {
         barcode: data.barcode,
         description: data.description || '',
         stock: data.stock,
+        price: data.price != null ? data.price : '',
+        category: data.category || '',
+        minStock: data.minStock != null ? data.minStock : 2,
+        supplierId: data.supplierId != null ? data.supplierId.toString() : '',
       });
     } catch (error) {
       console.error('Error fetching product:', error);
@@ -51,6 +66,8 @@ export function EditProduct() {
     if (!formData.name.trim()) newErrors.name = 'El nombre es obligatorio';
     if (!formData.barcode.trim()) newErrors.barcode = 'El código de barras es obligatorio';
     if (formData.stock < 0) newErrors.stock = 'El stock no puede ser negativo';
+    if (formData.price === '' || Number(formData.price) < 0) newErrors.price = 'El precio es obligatorio';
+    if (!formData.category) newErrors.category = 'La categoría es obligatoria';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -59,7 +76,7 @@ export function EditProduct() {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: name === 'stock' ? parseInt(value) || 0 : value
+      [name]: name === 'stock' || name === 'minStock' ? parseInt(value) || 0 : value
     }));
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
@@ -72,7 +89,11 @@ export function EditProduct() {
 
     setSaving(true);
     try {
-      await productService.update(id, formData);
+      await productService.update(id, {
+        ...formData,
+        price: parseFloat(formData.price),
+        supplierId: formData.supplierId ? parseInt(formData.supplierId) : null,
+      });
       navigate('/products');
     } catch (error) {
       console.error('Error updating product:', error);
@@ -139,20 +160,86 @@ export function EditProduct() {
             />
           </div>
 
-          <div>
-            <Input
-              label="Stock"
-              type="number"
-              name="stock"
-              value={formData.stock}
-              onChange={handleChange}
-              error={!!errors.stock}
-            />
-            {errors.stock && (
-              <Typography variant="small" color="red" className="mt-1">
-                {errors.stock}
-              </Typography>
-            )}
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div>
+              <Select
+                label="Categoría"
+                value={formData.category}
+                onChange={(value) => {
+                  setFormData(prev => ({ ...prev, category: value }));
+                  setErrors(prev => ({ ...prev, category: '' }));
+                }}
+              >
+                <Option value="CELULAR">Celular</Option>
+                <Option value="ACCESORIO">Accesorio</Option>
+              </Select>
+              {errors.category && (
+                <Typography variant="small" color="red" className="mt-1">
+                  {errors.category}
+                </Typography>
+              )}
+            </div>
+
+            <div>
+              <Select
+                label="Proveedor (opcional)"
+                value={formData.supplierId}
+                onChange={(value) => setFormData(prev => ({ ...prev, supplierId: value }))}
+              >
+                {suppliers.map((supplier) => (
+                  <Option key={supplier.supplierId} value={supplier.supplierId.toString()}>
+                    {supplier.name}
+                  </Option>
+                ))}
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+            <div>
+              <Input
+                label="Precio de venta (Q)"
+                type="number"
+                step="0.01"
+                min="0"
+                name="price"
+                value={formData.price}
+                onChange={handleChange}
+                error={!!errors.price}
+              />
+              {errors.price && (
+                <Typography variant="small" color="red" className="mt-1">
+                  {errors.price}
+                </Typography>
+              )}
+            </div>
+
+            <div>
+              <Input
+                label="Stock"
+                type="number"
+                name="stock"
+                value={formData.stock}
+                onChange={handleChange}
+                error={!!errors.stock}
+              />
+              {errors.stock && (
+                <Typography variant="small" color="red" className="mt-1">
+                  {errors.stock}
+                </Typography>
+              )}
+            </div>
+
+            <div>
+              <Input
+                label="Stock mínimo"
+                type="number"
+                min="0"
+                name="minStock"
+                value={formData.minStock}
+                onChange={handleChange}
+              />
+            </div>
           </div>
 
           <div className="flex justify-end gap-4">
