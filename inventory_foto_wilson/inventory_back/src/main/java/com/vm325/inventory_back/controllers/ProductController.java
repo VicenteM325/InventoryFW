@@ -29,12 +29,20 @@ public class ProductController {
         return ResponseEntity.ok(productService.update(id, dto));
     }
 
-    // Solo Administrador puede eliminar productos
+    // Solo Administrador puede dar de baja productos. Es una baja lógica
+    // (RF-02), no un borrado físico: el producto deja de estar activo pero
+    // su historial de ventas/alertas se conserva intacto.
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         productService.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PatchMapping("/{id}/activate")
+    public ResponseEntity<ProductResponseDto> activate(@PathVariable Long id) {
+        return ResponseEntity.ok(productService.activate(id));
     }
 
     @GetMapping("/{id}")
