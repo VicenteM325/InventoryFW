@@ -1,6 +1,5 @@
 package com.vm325.inventory_back.services;
 
-import com.vm325.inventory_back.config.InventoryProperties;
 import com.vm325.inventory_back.dtos.*;
 import com.vm325.inventory_back.entities.Product;
 import com.vm325.inventory_back.entities.Sale;
@@ -32,7 +31,6 @@ public class SaleServiceImpl implements SaleService {
     private final ProductRepository productRepository;
     private final StockAlertRepository stockAlertRepository;
     private final UserRepository userRepository;
-    private final InventoryProperties inventoryProperties;
     private final NotificationService notificationService;
 
     @Override
@@ -103,8 +101,8 @@ public class SaleServiceImpl implements SaleService {
         for (SaleDetail detail : savedSale.getDetails()) {
             Product product = detail.getProduct();
 
-            // Verificar si el stock está por debajo del mínimo
-            if (product.getStock() < inventoryProperties.getStockMinimo()) {
+            // Verificar si el stock está por debajo del mínimo propio del producto
+            if (product.getStock() < product.getMinStock()) {
                 boolean alreadyPending = !stockAlertRepository
                         .findByProduct_ProductIdAndStatus(product.getProductId(), StockAlertStatus.PENDIENTE)
                         .isEmpty();

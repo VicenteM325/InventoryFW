@@ -36,19 +36,21 @@ public class InventoryReportServiceImpl implements InventoryReportService {
     private ReportTable buildProductTable() {
         List<Product> products = productRepository.findAll();
 
-        List<String> headers = List.of("Producto", "Codigo de barras", "Stock", "Estado");
+        List<String> headers = List.of("Producto", "Codigo de barras", "Categoria", "Proveedor", "Stock", "Estado");
         List<List<String>> rows = products.stream()
                 .map(p -> List.of(
                         p.getName(),
                         p.getBarcode(),
+                        p.getCategory() != null ? p.getCategory().toString() : "-",
+                        p.getSupplier() != null ? p.getSupplier().getName() : "-",
                         String.valueOf(p.getStock()),
-                        stockStatusCalculator.resolve(p.getStock())
+                        stockStatusCalculator.resolve(p.getStock(), p.getMinStock())
                 ))
                 .collect(Collectors.toList());
 
-        long disponibles = products.stream().filter(p -> "DISPONIBLE".equals(stockStatusCalculator.resolve(p.getStock()))).count();
-        long stockBajo = products.stream().filter(p -> "STOCK_BAJO".equals(stockStatusCalculator.resolve(p.getStock()))).count();
-        long agotados = products.stream().filter(p -> "AGOTADO".equals(stockStatusCalculator.resolve(p.getStock()))).count();
+        long disponibles = products.stream().filter(p -> "DISPONIBLE".equals(stockStatusCalculator.resolve(p.getStock(), p.getMinStock()))).count();
+        long stockBajo = products.stream().filter(p -> "STOCK_BAJO".equals(stockStatusCalculator.resolve(p.getStock(), p.getMinStock()))).count();
+        long agotados = products.stream().filter(p -> "AGOTADO".equals(stockStatusCalculator.resolve(p.getStock(), p.getMinStock()))).count();
 
         List<String> footer = List.of(
                 "Total de productos: " + products.size(),
