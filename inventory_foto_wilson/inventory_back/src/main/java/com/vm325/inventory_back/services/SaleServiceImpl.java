@@ -6,6 +6,7 @@ import com.vm325.inventory_back.entities.Sale;
 import com.vm325.inventory_back.entities.SaleDetail;
 import com.vm325.inventory_back.entities.StockAlert;
 import com.vm325.inventory_back.entities.User;
+import com.vm325.inventory_back.enums.NotificationType;
 import com.vm325.inventory_back.enums.StockAlertStatus;
 import com.vm325.inventory_back.repositories.ProductRepository;
 import com.vm325.inventory_back.repositories.SaleRepository;
@@ -30,7 +31,7 @@ public class SaleServiceImpl implements SaleService {
     private final ProductRepository productRepository;
     private final StockAlertRepository stockAlertRepository;
     private final UserRepository userRepository;
-    private static final int STOCK_MINIMO = 2;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -100,8 +101,8 @@ public class SaleServiceImpl implements SaleService {
         for (SaleDetail detail : savedSale.getDetails()) {
             Product product = detail.getProduct();
 
-            // Verificar si el stock está por debajo del mínimo
-            if (product.getStock() < STOCK_MINIMO) {
+            // Verificar si el stock está por debajo del mínimo propio del producto
+            if (product.getStock() < product.getMinStock()) {
                 boolean alreadyPending = !stockAlertRepository
                         .findByProduct_ProductIdAndStatus(product.getProductId(), StockAlertStatus.PENDIENTE)
                         .isEmpty();
@@ -111,8 +112,16 @@ public class SaleServiceImpl implements SaleService {
                             .product(product)
                             .stockAtAlert(product.getStock())
                             .build();
-                    stockAlertRepository.save(alert);
+                    StockAlert savedAlert = stockAlertRepository.save(alert);
                     alertedProductIds.add(product.getProductId());
+
+                    notificationService.notify(
+                            NotificationType.STOCK_BAJO,
+                            "Stock bajo: " + product.getName() + " quedó con " + product.getStock() + " unidades",
+                            "StockAlert",
+                            savedAlert.getStockAlertId(),
+                            null
+                    );
                 }
             }
 

@@ -1,0 +1,9 @@
+# Environment files with secrets - never commit these, only *.example versions
+.env
+.env.*
+!.env.example
+!*/.env.example
+
+# Editor/IDE
+.vscode/
+.idea/

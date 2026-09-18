@@ -14,15 +14,11 @@ export function AuthProvider({ children }) {
     const storedRoles = localStorage.getItem('roles');
     const storedToken = localStorage.getItem('token');
 
-    console.log('AuthProvider - storedRoles:', storedRoles);
-
     if (storedUser && storedToken) {
       try {
         const parsedUser = JSON.parse(storedUser);
         const parsedRoles = storedRoles ? JSON.parse(storedRoles) : [];
-        
-        console.log('AuthProvider - parsedRoles:', parsedRoles);
-        
+
         setUser(parsedUser);
         setRoles(parsedRoles);
         setToken(storedToken);
@@ -38,10 +34,8 @@ export function AuthProvider({ children }) {
 
   const verifySession = async () => {
     try {
-      console.log('AuthProvider - Verificando sesión...');
       const data = await getUserDetails();
-      console.log('AuthProvider - Datos de sesión:', data);
-      
+
       if (data) {
         // Extraer el rol del objeto role
         const userData = {
@@ -49,16 +43,12 @@ export function AuthProvider({ children }) {
           name: data.name,
           userName: data.userName
         };
-        
+
         // Extraer el nombre del rol del objeto role
         const roleName = data.role?.name || data.role || '';
         const rolesData = roleName ? [roleName] : [];
-        
-        const tokenData = data.token || localStorage.getItem('token');
 
-        console.log('AuthProvider - userData:', userData);
-        console.log('AuthProvider - rolesData:', rolesData);
-        console.log('AuthProvider - tokenData:', tokenData);
+        const tokenData = data.token || localStorage.getItem('token');
 
         setUser(userData);
         setRoles(rolesData);
@@ -75,23 +65,18 @@ export function AuthProvider({ children }) {
         }
       }
     } catch (error) {
-      console.log('No hay sesión activa');
+      // No hay sesión activa; se queda deslogueado sin considerarlo un error.
     } finally {
       setLoading(false);
     }
   };
 
   const login = (data) => {
-    console.log('AuthProvider - Login - Datos recibidos:', data);
-    
     // Extraer el rol del objeto role
     const userData = data.user || data;
     const roleName = data.role?.name || data.role || '';
     const rolesData = roleName ? [roleName] : [];
     const tokenData = data.token || data.accessToken;
-
-    console.log('AuthProvider - Login - userData:', userData);
-    console.log('AuthProvider - Login - rolesData:', rolesData);
 
     setUser(userData);
     setRoles(rolesData);
@@ -103,7 +88,6 @@ export function AuthProvider({ children }) {
       if (tokenData) {
         localStorage.setItem('token', tokenData);
       }
-      console.log('AuthProvider - Login - roles guardados en localStorage:', rolesData);
     } catch (error) {
       console.error('Error al guardar los datos en el localStorage', error);
     }
@@ -111,11 +95,9 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
-      if (token) {
-        await logoutService(token);
-      }
+      await logoutService();
     } catch (error) {
-      console.log('Token ya expirado o inválido', error);
+      // El token ya pudo haber expirado en el backend; igual limpiamos localmente.
     }
 
     setUser(null);

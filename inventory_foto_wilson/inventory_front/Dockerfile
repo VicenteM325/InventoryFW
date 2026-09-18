@@ -3,6 +3,12 @@ FROM node:20-alpine AS build
 
 WORKDIR /app
 
+# Vite "hornea" las variables VITE_* dentro del bundle en tiempo de build,
+# así que deben pasarse como build-arg (no basta con environment: en
+# docker-compose, que solo aplica en runtime al servidor de dev de Vite).
+ARG VITE_API_URL=http://localhost:8080
+ENV VITE_API_URL=$VITE_API_URL
+
 COPY package*.json ./
 
 RUN npm install

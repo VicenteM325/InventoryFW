@@ -14,6 +14,7 @@ public class StockAlertResponseDto {
     private Long stockAlertId;
     private Long productId;
     private String productName;
+    private String supplierName;
     private Integer stockAtAlert;
     private StockAlertStatus status;
     private LocalDateTime createdAt;

@@ -12,14 +12,24 @@ import {
 } from "@material-tailwind/react";
 import {
   PencilIcon,
-  TrashIcon,
   EyeIcon,
   PlusIcon,
 } from "@heroicons/react/24/outline";
 import { productService } from "@/services/productService";
 import { AuthContext } from "@/context/AuthContext"; 
 
-const TABLE_HEAD = ['Producto', 'Código', 'Stock', 'Estado', 'Acciones'];
+const TABLE_HEAD = ['Producto', 'Código', 'Categoría', 'Precio', 'Proveedor', 'Stock', 'Estado', 'Acciones'];
+
+const STOCK_STATUS_LABELS = {
+  DISPONIBLE: { label: 'Disponible', color: 'green' },
+  STOCK_BAJO: { label: 'Stock Bajo', color: 'amber' },
+  AGOTADO: { label: 'Agotado', color: 'red' },
+};
+
+const CATEGORY_LABELS = {
+  CELULAR: 'Celular',
+  ACCESORIO: 'Accesorio',
+};
 
 export function Products() {
   const navigate = useNavigate();
@@ -46,23 +56,20 @@ export function Products() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm('¿Estás seguro de eliminar este producto?')) {
-      try {
-        await productService.delete(id);
-        await fetchProducts();
-      } catch (error) {
-        console.error('Error deleting product:', error);
-        alert(error.response?.data?.message || 'Error al eliminar el producto');
+  const toggleActive = async (product) => {
+    const action = product.active ? 'desactivar' : 'activar';
+    if (!window.confirm(`¿Seguro que quieres ${action} este producto?`)) return;
+    try {
+      if (product.active) {
+        await productService.delete(product.productId);
+      } else {
+        await productService.activate(product.productId);
       }
+      await fetchProducts();
+    } catch (error) {
+      console.error('Error toggling product active state:', error);
+      alert(error.response?.data?.message || `Error al ${action} el producto`);
     }
-  };
-
-  const getStockStatus = (stock) => {
-    if (stock <= 0) return { label: 'Agotado', color: 'red' };
-    if (stock <= 5) return { label: 'Stock Crítico', color: 'orange' };
-    if (stock <= 10) return { label: 'Stock Bajo', color: 'amber' };
-    return { label: 'Disponible', color: 'green' };
   };
 
   const filteredProducts = products.filter(product =>
@@ -124,14 +131,17 @@ export function Products() {
           </thead>
           <tbody>
             {filteredProducts.map((product) => {
-              const status = getStockStatus(product.stock);
-              
+              const status = STOCK_STATUS_LABELS[product.stockStatus] || { label: product.stockStatus, color: 'blue-gray' };
+
               return (
-                <tr key={product.productId}>
+                <tr key={product.productId} className={product.active ? '' : 'opacity-60'}>
                   <td className="p-4">
                     <div>
                       <Typography variant="small" color="blue-gray" className="font-semibold">
                         {product.name}
+                        {!product.active && (
+                          <span className="ml-2 text-xs font-normal text-red-500">(Inactivo)</span>
+                        )}
                       </Typography>
                       <Typography variant="small" color="gray" className="text-xs">
                         {product.description || 'Sin descripción'}
@@ -141,6 +151,21 @@ export function Products() {
                   <td className="p-4">
                     <Typography variant="small" color="blue-gray">
                       {product.barcode}
+                    </Typography>
+                  </td>
+                  <td className="p-4">
+                    <Typography variant="small" color="blue-gray">
+                      {product.category ? (CATEGORY_LABELS[product.category] || product.category) : '-'}
+                    </Typography>
+                  </td>
+                  <td className="p-4">
+                    <Typography variant="small" color="blue-gray">
+                      Q{Number(product.price || 0).toFixed(2)}
+                    </Typography>
+                  </td>
+                  <td className="p-4">
+                    <Typography variant="small" color="blue-gray">
+                      {product.supplierName || '-'}
                     </Typography>
                   </td>
                   <td className="p-4">
@@ -177,15 +202,14 @@ export function Products() {
                         </IconButton>
                       </Tooltip>
                       {isAdmin && (
-                        <Tooltip content="Eliminar">
-                          <IconButton
-                            variant="text"
-                            color="red"
-                            onClick={() => handleDelete(product.productId)}
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                          </IconButton>
-                        </Tooltip>
+                        <Button
+                          size="sm"
+                          variant="outlined"
+                          color={product.active ? 'red' : 'green'}
+                          onClick={() => toggleActive(product)}
+                        >
+                          {product.active ? 'Desactivar' : 'Activar'}
+                        </Button>
                       )}
                     </div>
                   </td>

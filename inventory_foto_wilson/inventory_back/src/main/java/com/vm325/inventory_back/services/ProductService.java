@@ -9,6 +9,7 @@ public interface ProductService {
     ProductResponseDto create(ProductRequestDto dto);
     ProductResponseDto update(Long id, ProductRequestDto dto);
     void delete(Long id);
+    ProductResponseDto activate(Long id);
     ProductResponseDto findById(Long id);
     List<ProductResponseDto> findAll();
 }

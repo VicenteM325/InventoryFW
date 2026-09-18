@@ -2,17 +2,23 @@ import {
   HomeIcon,
   UserCircleIcon,
   TableCellsIcon,
-  InformationCircleIcon,
   ServerStackIcon,
-  RectangleStackIcon,
   ShoppingBagIcon,
-  PlusCircleIcon, 
+  PlusCircleIcon,
   PencilIcon,
+  DocumentTextIcon,
+  ChartBarIcon,
+  UsersIcon,
+  TruckIcon,
 } from "@heroicons/react/24/solid";
-import { Home, Profile, Tables, Notifications } from "@/pages/dashboard";
-import { SignIn, SignUp } from "@/pages/auth";
+import { Home, Profile } from "@/pages/dashboard";
+import { SignIn } from "@/pages/auth";
 import { Products, CreateProduct, EditProduct } from "@/pages/dashboard/product";
 import { Sales, Alerts } from "@/pages/dashboard/sale";
+import { DpiDocuments } from "@/pages/dashboard/documents";
+import { Reports } from "@/pages/dashboard/reports";
+import { Users } from "@/pages/dashboard/users";
+import { Suppliers } from "@/pages/dashboard/suppliers";
 
 const icon = {
   className: "w-5 h-5 text-inherit",
@@ -27,7 +33,7 @@ export const routes = [
         name: "dashboard",
         path: "/home",
         element: <Home />,
-        roles: ["ROLE_ADMIN"], 
+        roles: ["ROLE_ADMIN"],
       },
       {
         icon: <UserCircleIcon {...icon} />,
@@ -49,6 +55,7 @@ export const routes = [
         path: "/products/create",
         element: <CreateProduct />,
         roles: ["ROLE_ADMIN", "ROLE_EMPLOYEE"],
+        hidden: true,
       },
       {
         icon: <PencilIcon {...icon} />,
@@ -59,6 +66,13 @@ export const routes = [
         hidden: true,
       },
        {
+        icon: <TruckIcon {...icon} />,
+        name: "Proveedores",
+        path: "/suppliers",
+        element: <Suppliers />,
+        roles: ["ROLE_ADMIN", "ROLE_EMPLOYEE"],
+      },
+      {
         icon: <TableCellsIcon {...icon} />,
         name: "Ventas",
         path: "/sales",
@@ -72,6 +86,27 @@ export const routes = [
         element: <Alerts />,
         roles: ["ROLE_ADMIN", "ROLE_EMPLOYEE"],
       },
+      {
+        icon: <DocumentTextIcon {...icon} />,
+        name: "Documentos DPI",
+        path: "/documents/dpi",
+        element: <DpiDocuments />,
+        roles: ["ROLE_ADMIN", "ROLE_EMPLOYEE"],
+      },
+      {
+        icon: <ChartBarIcon {...icon} />,
+        name: "Reportes",
+        path: "/reports",
+        element: <Reports />,
+        roles: ["ROLE_ADMIN", "ROLE_EMPLOYEE"],
+      },
+      {
+        icon: <UsersIcon {...icon} />,
+        name: "Usuarios",
+        path: "/users",
+        element: <Users />,
+        roles: ["ROLE_ADMIN"],
+      },
     ],
   },
   {
@@ -84,12 +119,6 @@ export const routes = [
         name: "sign in",
         path: "/sign-in",
         element: <SignIn />,
-      },
-      {
-        icon: <RectangleStackIcon {...icon} />,
-        name: "sign up",
-        path: "/sign-up",
-        element: <SignUp />,
       },
     ],
   },
