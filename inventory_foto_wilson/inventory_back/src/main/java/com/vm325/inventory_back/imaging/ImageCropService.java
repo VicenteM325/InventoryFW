@@ -22,11 +22,27 @@ public interface ImageCropService {
      * por {@code settings} ({@link EnhancementSettings#DEFAULT} es el modo
      * automático).
      *
+     * @param manualCorners si no es {@code null}, se usa para rectificar en
+     *                       vez de la detección automática — esquinas
+     *                       ajustadas a mano por el usuario, en el mismo
+     *                       espacio de píxeles que devuelve
+     *                       {@link #detectCorners}.
      * @throws IllegalArgumentException si los bytes no representan una
      *                                  imagen decodificable (formato no
      *                                  soportado o archivo corrupto), o si
      *                                  {@code rotationOverride} no es 0, 90,
      *                                  180 o 270.
      */
-    BufferedImage cropAndFit(byte[] rawImage, CropSpec spec, EnhancementSettings settings, int rotationOverride);
+    BufferedImage cropAndFit(byte[] rawImage, CropSpec spec, EnhancementSettings settings, int rotationOverride,
+                              DetectedCorners manualCorners);
+
+    /**
+     * Decodifica la imagen, corrige EXIF y aplica la rotación manual (igual
+     * que {@link #cropAndFit}), pero se detiene ahí: devuelve esa imagen
+     * normalizada junto con las esquinas detectadas automáticamente, sin
+     * recortar ni escalar todavía — para que el llamador pueda mostrarle al
+     * usuario dónde detectó el borde antes de comprometerse a generar el
+     * documento final.
+     */
+    NormalizedImageWithCorners detectCorners(byte[] rawImage, CropSpec spec, int rotationOverride);
 }

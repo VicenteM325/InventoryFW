@@ -32,7 +32,28 @@ public class ImageCropServiceImpl implements ImageCropService {
     }
 
     @Override
-    public BufferedImage cropAndFit(byte[] rawImage, CropSpec spec, EnhancementSettings settings, int rotationOverride) {
+    public BufferedImage cropAndFit(byte[] rawImage, CropSpec spec, EnhancementSettings settings, int rotationOverride,
+                                     DetectedCorners manualCorners) {
+        BufferedImage source = decode(rawImage);
+        BufferedImage upright = exifOrientationNormalizer.normalize(rawImage, source);
+        BufferedImage rotated = ImageRotationUtil.rotateClockwise(upright, rotationOverride);
+        BufferedImage cropped = (manualCorners != null
+                ? cardDetectionService.rectify(rotated, manualCorners, spec)
+                : cardDetectionService.detectAndRectify(rotated, spec))
+                .orElseGet(() -> centerCropToAspectRatio(rotated, spec.aspectRatio()));
+        BufferedImage scaled = scaleTo(cropped, spec.targetWidthPx(), spec.targetHeightPx());
+        return imageEnhancementService.enhance(scaled, settings);
+    }
+
+    @Override
+    public NormalizedImageWithCorners detectCorners(byte[] rawImage, CropSpec spec, int rotationOverride) {
+        BufferedImage source = decode(rawImage);
+        BufferedImage upright = exifOrientationNormalizer.normalize(rawImage, source);
+        BufferedImage rotated = ImageRotationUtil.rotateClockwise(upright, rotationOverride);
+        return new NormalizedImageWithCorners(rotated, cardDetectionService.detectCorners(rotated, spec));
+    }
+
+    private BufferedImage decode(byte[] rawImage) {
         BufferedImage source;
         try {
             source = ImageIO.read(new ByteArrayInputStream(rawImage));
@@ -42,13 +63,7 @@ public class ImageCropServiceImpl implements ImageCropService {
         if (source == null) {
             throw new IllegalArgumentException("El archivo no es una imagen válida o su formato no es soportado");
         }
-
-        BufferedImage upright = exifOrientationNormalizer.normalize(rawImage, source);
-        BufferedImage rotated = ImageRotationUtil.rotateClockwise(upright, rotationOverride);
-        BufferedImage cropped = cardDetectionService.detectAndRectify(rotated, spec)
-                .orElseGet(() -> centerCropToAspectRatio(rotated, spec.aspectRatio()));
-        BufferedImage scaled = scaleTo(cropped, spec.targetWidthPx(), spec.targetHeightPx());
-        return imageEnhancementService.enhance(scaled, settings);
+        return source;
     }
 
     private BufferedImage centerCropToAspectRatio(BufferedImage source, double targetAspectRatio) {
