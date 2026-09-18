@@ -10,10 +10,12 @@ import {
 import { ArrowPathIcon } from "@heroicons/react/24/outline";
 import { documentService } from "@/services/documentService";
 import { downloadBlob, printBlob, extractErrorMessage } from "@/utils/fileDownload";
+import { useCornerAdjustment } from "@/hooks/useCornerAdjustment";
+import { CornerAdjustOverlay } from "@/components/CornerAdjustOverlay";
 
 const PREVIEW_DEBOUNCE_MS = 400;
 
-function useProcessedPreview(file, side, rotation, settings) {
+function useProcessedPreview(file, side, rotation, settings, corners) {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [loading, setLoading] = useState(false);
   const requestIdRef = useRef(0);
@@ -30,7 +32,7 @@ function useProcessedPreview(file, side, rotation, settings) {
     setLoading(true);
     const timer = setTimeout(async () => {
       try {
-        const blob = await documentService.previewDpiImage(file, side, settings, rotation);
+        const blob = await documentService.previewDpiImage(file, side, settings, rotation, corners);
         if (requestIdRef.current !== requestId) return; // llegó una respuesta vieja, se ignora
         const url = URL.createObjectURL(blob);
         if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
@@ -45,7 +47,7 @@ function useProcessedPreview(file, side, rotation, settings) {
 
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [file, side, rotation, settings.brightness, settings.contrast, settings.sharpness]);
+  }, [file, side, rotation, settings.brightness, settings.contrast, settings.sharpness, corners]);
 
   useEffect(() => () => {
     if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
@@ -54,7 +56,9 @@ function useProcessedPreview(file, side, rotation, settings) {
   return { previewUrl, loading };
 }
 
-function ImageDropzone({ label, file, previewUrl, onChange, onRotate, processedPreviewUrl, processedLoading }) {
+function ImageDropzone({
+  label, file, previewUrl, onChange, onRotate, processedPreviewUrl, processedLoading, cornerAdjustment,
+}) {
   const inputId = `dpi-image-${label}`;
 
   return (
@@ -90,6 +94,34 @@ function ImageDropzone({ label, file, previewUrl, onChange, onRotate, processedP
         <Typography variant="small" color="gray" className="mt-1 truncate">
           {file.name}
         </Typography>
+      )}
+
+      {file && cornerAdjustment.detection && (
+        <div className="mt-3">
+          <div className="mb-1 flex items-center justify-between">
+            <Typography variant="small" color="blue-gray" className="font-medium">
+              Ajustar recorte (arrastra las esquinas)
+            </Typography>
+            {cornerAdjustment.isManual && (
+              <Button
+                size="sm"
+                variant="text"
+                className="p-1"
+                onClick={cornerAdjustment.resetToAutoDetection}
+                type="button"
+              >
+                Restaurar detección automática
+              </Button>
+            )}
+          </div>
+          <CornerAdjustOverlay
+            imageUrl={cornerAdjustment.detection.previewImageUrl}
+            imageWidth={cornerAdjustment.detection.previewWidth}
+            imageHeight={cornerAdjustment.detection.previewHeight}
+            corners={cornerAdjustment.previewSpaceCorners}
+            onChange={cornerAdjustment.updateCornerFromPreview}
+          />
+        </div>
       )}
 
       {file && (
@@ -141,8 +173,10 @@ export function DpiDocuments() {
   const [result, setResult] = useState(null); // { blob, filename }
 
   const settings = { brightness, contrast, sharpness };
-  const frontPreview = useProcessedPreview(front, 'front', frontRotation, settings);
-  const backPreview = useProcessedPreview(back, 'back', backRotation, settings);
+  const frontCornerAdjustment = useCornerAdjustment(front, 'front', frontRotation);
+  const backCornerAdjustment = useCornerAdjustment(back, 'back', backRotation);
+  const frontPreview = useProcessedPreview(front, 'front', frontRotation, settings, frontCornerAdjustment.activeCorners);
+  const backPreview = useProcessedPreview(back, 'back', backRotation, settings, backCornerAdjustment.activeCorners);
 
   const handleFrontChange = (file) => {
     setFront(file);
@@ -185,7 +219,8 @@ export function DpiDocuments() {
     setResult(null);
     try {
       const blob = await documentService.generateDpi(
-        front, back, format, clientName, settings, frontRotation, backRotation
+        front, back, format, clientName, settings, frontRotation, backRotation,
+        frontCornerAdjustment.activeCorners, backCornerAdjustment.activeCorners
       );
       const extension = format === 'DOCX' ? 'docx' : 'pdf';
       const filename = `dpi_${Date.now()}.${extension}`;
@@ -218,6 +253,7 @@ export function DpiDocuments() {
               onRotate={() => setFrontRotation((r) => (r + 90) % 360)}
               processedPreviewUrl={frontPreview.previewUrl}
               processedLoading={frontPreview.loading}
+              cornerAdjustment={frontCornerAdjustment}
             />
             <ImageDropzone
               label="Reverso"
@@ -227,6 +263,7 @@ export function DpiDocuments() {
               onRotate={() => setBackRotation((r) => (r + 90) % 360)}
               processedPreviewUrl={backPreview.previewUrl}
               processedLoading={backPreview.loading}
+              cornerAdjustment={backCornerAdjustment}
             />
           </div>
 
