@@ -62,6 +62,33 @@ class CardDetectionServiceImplTest {
     }
 
     @Test
+    void detectAndRectify_blobMasGrandeYSucioCompiteConTarjetaLimpia_ganaLaTarjeta() {
+        // Caso de regresión: pickBest() elegía antes el candidato de MAYOR
+        // ÁREA entre los que pasaban los filtros, sin importar qué tan
+        // "limpio" (rectangular, con el contorno pegado a sus 4 lados) fuera
+        // cada uno. Aquí un blob de fondo más grande pero con un borde
+        // irregular (recorte en zigzag, rectangularidad baja) compite con la
+        // tarjeta real, más chica pero perfectamente rectangular. El puntaje
+        // compuesto (que pesa rectangularidad e inlier fraction, no solo
+        // área) debe preferir la tarjeta real. Se verifica marcando el
+        // centro de la tarjeta real con un cuadrado negro: si el recorte
+        // final es oscuro en el centro, se recortó la tarjeta correcta: si
+        // el blob grande hubiera ganado, el centro sería del mismo gris
+        // uniforme que el resto del blob.
+        BufferedImage photo = largeJaggedBlobCompetingWithCleanCard();
+
+        Optional<BufferedImage> result = service.detectAndRectify(photo, TEST_SPEC);
+
+        assertTrue(result.isPresent(), "Debería encontrar un candidato válido");
+        BufferedImage cropped = result.get();
+        int centerX = cropped.getWidth() / 2;
+        int centerY = cropped.getHeight() / 2;
+        int centerGray = new Color(cropped.getRGB(centerX, centerY)).getRed();
+        assertTrue(centerGray < 100,
+                "El centro del recorte debería ser el marcador oscuro de la tarjeta real, no el gris uniforme del blob grande (fue " + centerGray + ")");
+    }
+
+    @Test
     void detectAndRectify_imagenDeUnSoloColor_haceFallbackSinLanzarExcepcion() {
         BufferedImage photo = new BufferedImage(400, 300, BufferedImage.TYPE_INT_RGB);
         Graphics2D g = photo.createGraphics();
@@ -112,6 +139,43 @@ class CardDetectionServiceImplTest {
         int cardHeight = 215; // ~1011/638
         g.fillRect((canvasSize - cardWidth) / 2, (canvasSize - cardHeight) / 2, cardWidth, cardHeight);
         g.dispose();
+        return photo;
+    }
+
+    private static BufferedImage largeJaggedBlobCompetingWithCleanCard() {
+        int canvasSize = 650;
+        BufferedImage photo = new BufferedImage(canvasSize, canvasSize, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = photo.createGraphics();
+        g.setColor(new Color(30, 30, 30));
+        g.fillRect(0, 0, canvasSize, canvasSize);
+        g.setColor(new Color(230, 230, 230));
+
+        // Blob grande con la relación de aspecto objetivo pero una esquina
+        // cortada en diagonal (pentágono, no un rectángulo limpio): sigue
+        // siendo un candidato válido (pasa los filtros de área e inlier
+        // fraction) pero con rectangularidad e inlier fraction notoriamente
+        // peores que una tarjeta limpia — con un área bastante mayor a la
+        // de la tarjeta real (ambas dentro del rango válido 15%-98% del
+        // cuadro), para que "el área más grande gana" lo hubiera elegido
+        // antes.
+        int blobX = 20, blobY = 20, blobWidth = 520, blobHeight = 328; // ~1011/638
+        int chamfer = 150;
+        int[] xs = {blobX, blobX + blobWidth - chamfer, blobX + blobWidth, blobX + blobWidth, blobX};
+        int[] ys = {blobY, blobY, blobY + chamfer, blobY + blobHeight, blobY + blobHeight};
+        g.fillPolygon(xs, ys, xs.length);
+
+        // Tarjeta real: más chica pero aun así un candidato válido (>15%
+        // del cuadro), perfectamente rectangular, con un marcador negro en
+        // el centro para poder verificar cuál candidato terminó siendo el
+        // recortado.
+        int cardX = 20, cardY = 400, cardWidth = 340, cardHeight = 214; // ~1011/638
+        g.fillRect(cardX, cardY, cardWidth, cardHeight);
+        g.setColor(Color.BLACK);
+        int markerSize = 40;
+        g.fillRect(cardX + cardWidth / 2 - markerSize / 2, cardY + cardHeight / 2 - markerSize / 2, markerSize, markerSize);
+
+        g.dispose();
+        addNoise(photo);
         return photo;
     }
 
