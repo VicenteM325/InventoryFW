@@ -15,5 +15,23 @@ import java.util.Optional;
  */
 public interface CardDetectionService {
 
-    Optional<BufferedImage> detectAndRectify(BufferedImage source, CropSpec spec);
+    /**
+     * Detecta las 4 esquinas de la tarjeta, sin rectificarla todavía —
+     * separado de {@link #rectify} para que el llamador pueda mostrarle las
+     * esquinas detectadas al usuario (p.ej. para ajustarlas a mano) antes de
+     * comprometerse a recortar.
+     */
+    Optional<DetectedCorners> detectCorners(BufferedImage source, CropSpec spec);
+
+    /**
+     * Endereza por perspectiva la tarjeta usando las esquinas dadas —
+     * detectadas automáticamente o ajustadas a mano por el usuario. Comparte
+     * la misma matemática de rectificación que {@link #detectAndRectify},
+     * sin duplicarla.
+     */
+    Optional<BufferedImage> rectify(BufferedImage source, DetectedCorners corners, CropSpec spec);
+
+    default Optional<BufferedImage> detectAndRectify(BufferedImage source, CropSpec spec) {
+        return detectCorners(source, spec).flatMap(corners -> rectify(source, corners, spec));
+    }
 }

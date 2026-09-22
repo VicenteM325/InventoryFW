@@ -71,6 +71,12 @@ public class CardDetectionServiceImpl implements CardDetectionService {
     private static final double INLIER_TOLERANCE_FRACTION = 0.015;
     private static final double MIN_CONTOUR_LENGTH_FRACTION = 0.25;
 
+    private static final double INLIER_WEIGHT = 0.40;
+    private static final double RECTANGULARITY_WEIGHT = 0.30;
+    private static final double ASPECT_WEIGHT = 0.20;
+    private static final double AREA_WEIGHT = 0.10;
+    private static final double AREA_SCORE_SATURATION = 0.6;
+
     private static final float CANNY_LOW_THRESHOLD = 0.1f;
     private static final float CANNY_HIGH_THRESHOLD = 0.3f;
     private static final int EDGE_DILATION_RADIUS = 2;
@@ -81,14 +87,14 @@ public class CardDetectionServiceImpl implements CardDetectionService {
     private static final double TEXTURE_STDDEV_THRESHOLD = 15.0;
 
     @Override
-    public Optional<BufferedImage> detectAndRectify(BufferedImage source, CropSpec spec) {
+    public Optional<DetectedCorners> detectCorners(BufferedImage source, CropSpec spec) {
         try {
             GrayU8 gray = ConvertBufferedImage.convertFromSingle(source, null, GrayU8.class);
             int width = source.getWidth();
             int height = source.getHeight();
             double minContourPoints = Math.hypot(width, height) * MIN_CONTOUR_LENGTH_FRACTION;
 
-            List<OrderedCorners> candidates = new ArrayList<>();
+            List<CardCandidate> candidates = new ArrayList<>();
             candidates.addAll(candidatesFrom(localMeanBinary(gray, false), minContourPoints));
             candidates.addAll(candidatesFrom(localMeanBinary(gray, true), minContourPoints));
             candidates.addAll(candidatesFrom(cannyEdgeBinary(gray), minContourPoints));
@@ -101,9 +107,9 @@ public class CardDetectionServiceImpl implements CardDetectionService {
                 return Optional.empty();
             }
 
-            return rectify(source, best, spec);
+            return Optional.of(toPublic(best));
         } catch (Exception e) {
-            log.debug("Falla detectando/enderezando la tarjeta, se usará el recorte de respaldo: {}", e.getMessage());
+            log.debug("Falla detectando el borde de la tarjeta, se usará el recorte de respaldo: {}", e.getMessage());
             return Optional.empty();
         }
     }
@@ -129,11 +135,21 @@ public class CardDetectionServiceImpl implements CardDetectionService {
      * brillo (luminancia) parecido — es una señal distinta e independiente
      * del brillo, útil quando el fondo tiene zonas de brillo similar al de
      * la tarjeta pero de un color notoriamente distinto.
+     * <p>
+     * Los umbrales de saturación y brillo se calculan por imagen con Otsu
+     * (a partir del propio histograma de la foto) en vez de usar siempre la
+     * misma constante — fotos con iluminación muy distinta entre sí no
+     * comparten un umbral absoluto razonable. Si Otsu cae en un extremo del
+     * histograma (imagen casi de un solo tono, donde no hay una separación
+     * bimodal real que encontrar) se usa la constante fija como respaldo.
      */
     private GrayU8 lowSaturationBinary(BufferedImage source) {
         int width = source.getWidth();
         int height = source.getHeight();
-        GrayU8 mask = new GrayU8(width, height);
+        float[] saturation = new float[width * height];
+        float[] brightness = new float[width * height];
+        int[] saturationHistogram = new int[256];
+        int[] brightnessHistogram = new int[256];
         float[] hsb = new float[3];
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
@@ -142,7 +158,22 @@ public class CardDetectionServiceImpl implements CardDetectionService {
                 int g = (rgb >> 8) & 0xFF;
                 int b = rgb & 0xFF;
                 java.awt.Color.RGBtoHSB(r, g, b, hsb);
-                boolean cardLike = hsb[1] < SATURATION_THRESHOLD && hsb[2] > BRIGHTNESS_THRESHOLD;
+                int index = y * width + x;
+                saturation[index] = hsb[1];
+                brightness[index] = hsb[2];
+                saturationHistogram[Math.round(hsb[1] * 255)]++;
+                brightnessHistogram[Math.round(hsb[2] * 255)]++;
+            }
+        }
+
+        float saturationThreshold = otsuOrFallback(saturationHistogram, SATURATION_THRESHOLD * 255) / 255f;
+        float brightnessThreshold = otsuOrFallback(brightnessHistogram, BRIGHTNESS_THRESHOLD * 255) / 255f;
+
+        GrayU8 mask = new GrayU8(width, height);
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int index = y * width + x;
+                boolean cardLike = saturation[index] < saturationThreshold && brightness[index] > brightnessThreshold;
                 mask.set(x, y, cardLike ? 1 : 0);
             }
         }
@@ -150,11 +181,28 @@ public class CardDetectionServiceImpl implements CardDetectionService {
     }
 
     /**
+     * Umbral de Otsu sobre un histograma de 256 buckets, con respaldo a un
+     * valor fijo cuando Otsu cae en un extremo — señal de que el histograma
+     * es casi unimodal (imagen de un solo tono) y no hay una separación
+     * bimodal confiable que Otsu pueda encontrar.
+     */
+    private int otsuOrFallback(int[] histogram256, double fallbackValue) {
+        int otsu = GThresholdImageOps.computeOtsu(histogram256, 0, 255);
+        if (otsu <= 2 || otsu >= 253) {
+            return (int) Math.round(fallbackValue);
+        }
+        return otsu;
+    }
+
+    /**
      * Máscara de "región lisa" vía desviación estándar local (calculada con
      * imágenes integrales, O(1) por píxel): el plástico de una tarjeta es
      * liso, mientras que una tela o superficie con textura tiene variación
      * local incluso en sus zonas de un solo color — señal independiente
-     * tanto del brillo como de la saturación.
+     * tanto del brillo como de la saturación. El umbral de "cuánta
+     * desviación estándar cuenta como liso" también se calcula por imagen
+     * con Otsu, con la misma constante fija como respaldo si el histograma
+     * de desviaciones no tiene una separación bimodal clara.
      */
     private GrayU8 lowTextureBinary(GrayU8 gray) {
         int width = gray.width;
@@ -170,7 +218,8 @@ public class CardDetectionServiceImpl implements CardDetectionService {
         }
 
         int windowRadius = Math.max(3, (int) (Math.min(width, height) * TEXTURE_WINDOW_FRACTION));
-        GrayU8 mask = new GrayU8(width, height);
+        double[][] stddev = new double[height][width];
+        int[] stddevHistogram = new int[256];
         for (int y = 0; y < height; y++) {
             int y0 = Math.max(0, y - windowRadius);
             int y1 = Math.min(height - 1, y + windowRadius);
@@ -182,7 +231,17 @@ public class CardDetectionServiceImpl implements CardDetectionService {
                 long sq = sumSq[y1 + 1][x1 + 1] - sumSq[y0][x1 + 1] - sumSq[y1 + 1][x0] + sumSq[y0][x0];
                 double mean = (double) s / count;
                 double variance = Math.max(0, (double) sq / count - mean * mean);
-                mask.set(x, y, Math.sqrt(variance) < TEXTURE_STDDEV_THRESHOLD ? 1 : 0);
+                double sd = Math.sqrt(variance);
+                stddev[y][x] = sd;
+                stddevHistogram[(int) Math.min(255, Math.round(sd))]++;
+            }
+        }
+
+        double textureThreshold = otsuOrFallback(stddevHistogram, TEXTURE_STDDEV_THRESHOLD);
+        GrayU8 mask = new GrayU8(width, height);
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                mask.set(x, y, stddev[y][x] < textureThreshold ? 1 : 0);
             }
         }
         return opening(mask);
@@ -255,16 +314,25 @@ public class CardDetectionServiceImpl implements CardDetectionService {
     }
 
     /**
+     * Candidato a borde de tarjeta con las señales de calidad ya calculadas
+     * (para no recalcularlas en {@link #pickBest}): fracción de puntos del
+     * contorno que caen sobre los 4 lados del rectángulo, y qué tanto llena
+     * el hull convexo a su propio rectángulo de área mínima (una tarjeta
+     * limpia ≈ 1.0; un blob de tarjeta fusionada con ruido de fondo, menos).
+     */
+    private record CardCandidate(OrderedCorners corners, double inlierFraction, double rectangularity) {}
+
+    /**
      * Extrae los contornos externos de una imagen binaria y reduce cada uno
      * (sin exigirle una cantidad exacta de vértices) a un rectángulo de
      * área mínima candidato, descartando los demasiado cortos para ser el
      * borde de una tarjeta fotografiada con un mínimo de encuadre.
      */
-    private List<OrderedCorners> candidatesFrom(GrayU8 binary, double minContourPoints) {
+    private List<CardCandidate> candidatesFrom(GrayU8 binary, double minContourPoints) {
         GrayS32 label = new GrayS32(binary.width, binary.height);
         List<Contour> contours = BinaryImageOps.contour(binary, ConnectRule.EIGHT, label);
 
-        List<OrderedCorners> result = new ArrayList<>();
+        List<CardCandidate> result = new ArrayList<>();
         for (Contour contour : contours) {
             List<Point2D_I32> externalPoints = contour.external;
             if (externalPoints.size() < minContourPoints) {
@@ -292,40 +360,54 @@ public class CardDetectionServiceImpl implements CardDetectionService {
                 continue;
             }
 
-            result.add(rect);
+            double rectangularity = Math.min(1.0, ConvexHullUtil.area(hull) / rectArea);
+            result.add(new CardCandidate(rect, inlierFraction, rectangularity));
         }
         return result;
     }
 
-    private OrderedCorners pickBest(List<OrderedCorners> candidates, int frameWidth, int frameHeight,
+    private OrderedCorners pickBest(List<CardCandidate> candidates, int frameWidth, int frameHeight,
                                      double targetAspectRatio) {
         double frameArea = (double) frameWidth * frameHeight;
-        OrderedCorners best = null;
-        double bestArea = -1;
+        CardCandidate best = null;
+        double bestScore = -1;
 
-        for (OrderedCorners candidate : candidates) {
-            double areaFraction = candidate.areaSimple() / frameArea;
+        for (CardCandidate candidate : candidates) {
+            double areaFraction = candidate.corners().areaSimple() / frameArea;
             if (areaFraction < MIN_AREA_FRACTION || areaFraction > MAX_AREA_FRACTION) {
                 continue;
             }
-            if (!matchesTargetAspectRatio(candidate.aspectRatio(), targetAspectRatio)) {
+            double aspectScore = aspectMatchScore(candidate.corners().aspectRatio(), targetAspectRatio);
+            if (aspectScore <= 0) {
                 continue;
             }
-            if (candidate.areaSimple() > bestArea) {
-                bestArea = candidate.areaSimple();
+            double areaScore = Math.min(areaFraction / AREA_SCORE_SATURATION, 1.0);
+            double score = INLIER_WEIGHT * candidate.inlierFraction()
+                    + RECTANGULARITY_WEIGHT * candidate.rectangularity()
+                    + ASPECT_WEIGHT * aspectScore
+                    + AREA_WEIGHT * areaScore;
+            if (score > bestScore) {
+                bestScore = score;
                 best = candidate;
             }
         }
-        return best;
+        return best == null ? null : best.corners();
     }
 
-    private boolean matchesTargetAspectRatio(double ratio, double targetAspectRatio) {
-        boolean matchesDirect = Math.abs(ratio / targetAspectRatio - 1) <= ASPECT_RATIO_TOLERANCE;
-        boolean matchesRotated = Math.abs((1 / ratio) / targetAspectRatio - 1) <= ASPECT_RATIO_TOLERANCE;
-        return matchesDirect || matchesRotated;
+    /**
+     * Qué tan cerca está la relación de aspecto del candidato de la
+     * relación de aspecto objetivo (probando también su versión rotada 90°,
+     * ya que la orientación de la tarjeta en la foto es arbitraria), como
+     * puntaje continuo 0–1 en vez de un simple sí/no — permite usarlo como
+     * un término más del puntaje compuesto de {@link #pickBest}.
+     */
+    private double aspectMatchScore(double ratio, double targetAspectRatio) {
+        double direct = 1 - Math.abs(ratio / targetAspectRatio - 1) / ASPECT_RATIO_TOLERANCE;
+        double rotated = 1 - Math.abs((1 / ratio) / targetAspectRatio - 1) / ASPECT_RATIO_TOLERANCE;
+        return Math.max(Math.max(direct, rotated), 0);
     }
 
-    private Optional<BufferedImage> rectify(BufferedImage source, OrderedCorners corners, CropSpec spec) {
+    private Optional<BufferedImage> rectifyOrdered(BufferedImage source, OrderedCorners corners, CropSpec spec) {
         Planar<GrayF32> color = ConvertBufferedImage.convertFromPlanar(source, null, true, GrayF32.class);
         RemovePerspectiveDistortion<Planar<GrayF32>> remover = new RemovePerspectiveDistortion<>(
                 spec.targetWidthPx(), spec.targetHeightPx(), ImageType.pl(3, GrayF32.class));
@@ -338,5 +420,40 @@ public class CardDetectionServiceImpl implements CardDetectionService {
         Planar<GrayF32> output = remover.getOutput();
         BufferedImage rectified = ConvertBufferedImage.convertTo_F32(output, null, true);
         return Optional.of(rectified);
+    }
+
+    @Override
+    public Optional<BufferedImage> rectify(BufferedImage source, DetectedCorners corners, CropSpec spec) {
+        try {
+            validateCorners(corners, source.getWidth(), source.getHeight());
+            return rectifyOrdered(source, toInternal(corners), spec);
+        } catch (Exception e) {
+            log.debug("Falla enderezando por perspectiva con esquinas dadas: {}", e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    private void validateCorners(DetectedCorners corners, int width, int height) {
+        for (CornerPoint p : List.of(corners.topLeft(), corners.topRight(), corners.bottomRight(), corners.bottomLeft())) {
+            if (Double.isNaN(p.x()) || Double.isNaN(p.y()) || p.x() < 0 || p.x() > width || p.y() < 0 || p.y() > height) {
+                throw new IllegalArgumentException("Esquina fuera de los límites de la imagen");
+            }
+        }
+    }
+
+    private static DetectedCorners toPublic(OrderedCorners corners) {
+        return new DetectedCorners(
+                new CornerPoint(corners.topLeft().x, corners.topLeft().y),
+                new CornerPoint(corners.topRight().x, corners.topRight().y),
+                new CornerPoint(corners.bottomRight().x, corners.bottomRight().y),
+                new CornerPoint(corners.bottomLeft().x, corners.bottomLeft().y));
+    }
+
+    private static OrderedCorners toInternal(DetectedCorners corners) {
+        return new OrderedCorners(
+                new Point2D_F64(corners.topLeft().x(), corners.topLeft().y()),
+                new Point2D_F64(corners.topRight().x(), corners.topRight().y()),
+                new Point2D_F64(corners.bottomRight().x(), corners.bottomRight().y()),
+                new Point2D_F64(corners.bottomLeft().x(), corners.bottomLeft().y()));
     }
 }

@@ -41,12 +41,12 @@ export function Footer({ brandName, brandLink, routes }) {
 }
 
 Footer.defaultProps = {
-  brandName: "Creative Tim",
-  brandLink: "https://www.creative-tim.com",
+  brandName: "VM325",
+  brandLink: "https://github.com/VicenteM325",
   routes: [
-    { name: "Creative Tim", path: "https://www.creative-tim.com" },
-    { name: "About Us", path: "https://www.creative-tim.com/presentation" },
-    { name: "Blog", path: "https://www.creative-tim.com/blog" },
+    { name: "VM325", path: "https://github.com/VicenteM325" },
+    { name: "About Us", path: "https://vicentem325.netlify.app/" },
+    { name: "Blog", path: "https://vicentem325.netlify.app/" },
     { name: "License", path: "https://www.creative-tim.com/license" },
   ],
 };
